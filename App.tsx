@@ -7,6 +7,7 @@ import {
   loadObjectives, saveObjectives,
   loadWeeklyTarget, saveWeeklyTarget
 } from './services/storageService';
+import { faviconService } from './services/faviconService';
 import Timer from './components/Timer';
 import History from './components/History';
 import Dashboard from './components/Dashboard';
@@ -80,6 +81,39 @@ function App() {
     return timerState.accumulatedTime;
   }, [timerState, now]);
 
+  // Update favicon and page title based on timer state
+  useEffect(() => {
+    const isRunning = timerState.isRunning;
+    const isPaused = !timerState.isRunning && timerState.accumulatedTime > 0;
+    const hasTime = elapsedSeconds > 0;
+    
+    // Update favicon
+    faviconService.updateFaviconState(isRunning, isPaused, hasTime);
+    
+    // Update page title
+    let title = 'FocusFlow';
+    if (isRunning) {
+      const hours = Math.floor(elapsedSeconds / 3600);
+      const minutes = Math.floor((elapsedSeconds % 3600) / 60);
+      const seconds = elapsedSeconds % 60;
+      const timeStr = `${hours.toString().padStart(2,'0')}:${minutes.toString().padStart(2,'0')}:${seconds.toString().padStart(2,'0')}`;
+      title = `⏱️ ${timeStr} - ${timerState.subject || 'Estudiando'} | FocusFlow`;
+    } else if (isPaused && hasTime) {
+      const hours = Math.floor(elapsedSeconds / 3600);
+      const minutes = Math.floor((elapsedSeconds % 3600) / 60);
+      const timeStr = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+      title = `⏸️ Pausado (${timeStr}) | FocusFlow`;
+    }
+    
+    document.title = title;
+  }, [timerState.isRunning, timerState.accumulatedTime, timerState.subject, elapsedSeconds]);
+
+  // Cleanup favicon service on unmount
+  useEffect(() => {
+    return () => {
+      faviconService.destroy();
+    };
+  }, []);
 
   const addSession = (session: StudySession) => {
     setSessions(prev => [session, ...prev]);
@@ -185,56 +219,85 @@ function App() {
 
   const toggleTheme = () => setDarkMode(!darkMode);
 
-  const NavButton = ({ view, icon: Icon, label }: { view: ViewState, icon: any, label: string }) => (
+  const HeaderNavButton = ({ view, icon: Icon, label }: { view: ViewState, icon: any, label: string }) => (
     <button
       onClick={() => setCurrentView(view)}
-      className={`flex flex-col items-center justify-center p-2 rounded-xl transition-all w-20 ${
+      className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-all ${
         currentView === view 
           ? 'text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/20' 
-          : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
+          : 'text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800'
       }`}
     >
-      <Icon className="w-6 h-6 mb-1" />
-      <span className="text-xs font-medium">{label}</span>
+      <Icon className="w-5 h-5" />
+      <span className="text-sm font-medium hidden sm:block">{label}</span>
     </button>
   );
 
   return (
     <div className="min-h-screen flex flex-col font-sans bg-gray-50 dark:bg-slate-950 transition-colors duration-300">
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center space-x-2">
-            <div className={`p-2 rounded-lg transition-colors ${timerState.isRunning ? 'bg-green-500 animate-pulse' : 'bg-primary-600'}`}>
-                <BookOpen className="w-5 h-5 text-white" />
-            </div>
-            <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary-600 to-violet-600 dark:from-primary-400 dark:to-violet-400">
-                FocusFlow
-            </h1>
-        </div>
-        
-        {/* Mini Timer Display in Header if not on Timer View */}
-        {currentView !== 'timer' && elapsedSeconds > 0 && (
-            <div 
-                onClick={() => setCurrentView('timer')}
-                className="hidden md:flex items-center px-3 py-1 bg-primary-50 dark:bg-primary-900/20 rounded-full text-primary-600 dark:text-primary-400 text-sm font-mono font-bold cursor-pointer hover:bg-primary-100 dark:hover:bg-primary-900/40 transition-colors"
-            >
-                <div className={`w-2 h-2 rounded-full mr-2 ${timerState.isRunning ? 'bg-green-500 animate-pulse' : 'bg-amber-500'}`}></div>
-                {Math.floor(elapsedSeconds / 3600).toString().padStart(2,'0')}:
-                {Math.floor((elapsedSeconds % 3600) / 60).toString().padStart(2,'0')}:
-                {(elapsedSeconds % 60).toString().padStart(2,'0')}
-            </div>
-        )}
+      <header className="sticky top-0 z-50 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-6 py-4">
+        <div className="relative flex items-center">
+          {/* Logo */}
+          <div className="flex items-center space-x-2">
+              <div className={`p-2 rounded-lg transition-colors ${timerState.isRunning ? 'bg-green-500 animate-pulse' : 'bg-primary-600'}`}>
+                  <BookOpen className="w-5 h-5 text-white" />
+              </div>
+              <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary-600 to-violet-600 dark:from-primary-400 dark:to-violet-400">
+                  FocusFlow
+              </h1>
+          </div>
 
-        <button 
-            onClick={toggleTheme}
-            className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-600 dark:text-slate-400"
-        >
-            {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-        </button>
+          {/* Navigation - Centered */}
+          <nav className="absolute left-1/2 transform -translate-x-1/2 flex items-center space-x-2">
+            <HeaderNavButton view="dashboard" icon={LayoutDashboard} label="Dashboard" />
+            
+            {/* Timer Button with active indicator */}
+            <button
+              onClick={() => setCurrentView('timer')}
+              className={`relative flex items-center space-x-2 px-4 py-2 rounded-lg transition-all ${
+                currentView === 'timer'
+                  ? 'text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/20' 
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800'
+              }`}
+            >
+                {timerState.isRunning && (
+                    <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-pulse border-2 border-white dark:border-slate-950"></span>
+                )}
+              <TimerIcon className="w-5 h-5" />
+              <span className="text-sm font-medium hidden sm:block">Timer</span>
+            </button>
+
+            <HeaderNavButton view="history" icon={HistoryIcon} label="Historial" />
+          </nav>
+          
+          {/* Right side - Mini Timer and Theme Toggle */}
+          <div className="ml-auto flex items-center space-x-3">
+            {/* Mini Timer Display in Header if not on Timer View */}
+            {currentView !== 'timer' && elapsedSeconds > 0 && (
+                <div 
+                    onClick={() => setCurrentView('timer')}
+                    className="hidden lg:flex items-center px-3 py-1 bg-primary-50 dark:bg-primary-900/20 rounded-full text-primary-600 dark:text-primary-400 text-sm font-mono font-bold cursor-pointer hover:bg-primary-100 dark:hover:bg-primary-900/40 transition-colors"
+                >
+                    <div className={`w-2 h-2 rounded-full mr-2 ${timerState.isRunning ? 'bg-green-500 animate-pulse' : 'bg-amber-500'}`}></div>
+                    {Math.floor(elapsedSeconds / 3600).toString().padStart(2,'0')}:
+                    {Math.floor((elapsedSeconds % 3600) / 60).toString().padStart(2,'0')}:
+                    {(elapsedSeconds % 60).toString().padStart(2,'0')}
+                </div>
+            )}
+
+            <button 
+                onClick={toggleTheme}
+                className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-600 dark:text-slate-400"
+            >
+                {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            </button>
+          </div>
+        </div>
       </header>
 
       {/* Main Content Area */}
-      <main className="flex-1 container mx-auto px-4 py-8 max-w-5xl">
+      <main className="flex-1 container mx-auto px-4 py-6 max-w-5xl">
         {currentView === 'timer' && (
              <div className="flex flex-col items-center animate-fade-in">
                  <h2 className="text-3xl font-bold mb-2 text-slate-800 dark:text-white">Tu tiempo de enfoque</h2>
@@ -267,31 +330,7 @@ function App() {
         {currentView === 'history' && <History sessions={sessions} onDeleteSession={deleteSession} />}
       </main>
 
-      {/* Bottom Navigation for Mobile / Tab Bar style */}
-      <nav className="fixed bottom-0 left-0 w-full bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 pb-safe pt-2 px-6 flex justify-around md:justify-center md:space-x-12 z-40 md:relative md:border-t-0 md:bg-transparent md:dark:bg-transparent md:pb-8">
-        <NavButton view="dashboard" icon={LayoutDashboard} label="Dashboard" />
-        
-        {/* Timer Button with active indicator */}
-        <button
-          onClick={() => setCurrentView('timer')}
-          className={`relative flex flex-col items-center justify-center p-2 rounded-xl transition-all w-20 ${
-            currentView === 'timer'
-              ? 'text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/20' 
-              : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
-          }`}
-        >
-            {timerState.isRunning && (
-                <span className="absolute top-2 right-4 w-2 h-2 bg-green-500 rounded-full animate-pulse border border-white dark:border-slate-900"></span>
-            )}
-          <TimerIcon className="w-6 h-6 mb-1" />
-          <span className="text-xs font-medium">Timer</span>
-        </button>
 
-        <NavButton view="history" icon={HistoryIcon} label="Historial" />
-      </nav>
-      
-      {/* Mobile safe area spacing */}
-      <div className="h-20 md:hidden"></div>
     </div>
   );
 }
