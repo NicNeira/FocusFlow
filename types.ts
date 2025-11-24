@@ -24,15 +24,6 @@ export interface AIInsight {
 // Tipos de técnicas de estudio
 export type StudyTechnique = "libre" | "pomodoro" | "52-17";
 
-// Sonidos disponibles
-export type SoundType = "start" | "pause" | "break" | "complete";
-
-// Configuración de sonidos
-export interface SoundSettings {
-  enabled: boolean;
-  volume: number; // 0-1
-}
-
 // Configuración de técnica
 export interface TechniqueConfig {
   type: StudyTechnique;
