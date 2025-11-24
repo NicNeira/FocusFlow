@@ -72,11 +72,6 @@ function App() {
     ) {
       setDarkMode(true);
     }
-
-    // Solicitar permisos de notificación
-    if ("Notification" in window && Notification.permission === "default") {
-      Notification.requestPermission();
-    }
   }, []);
 
   // Persistence Effects
@@ -139,7 +134,6 @@ function App() {
 
     // Transición a descanso
     if (shouldTransitionToBreak(elapsedSeconds, technique)) {
-
       setTimerState((prev) => ({
         ...prev,
         isRunning: false,
@@ -162,7 +156,6 @@ function App() {
 
     // Transición a trabajo (completar ciclo)
     if (shouldTransitionToWork(elapsedSeconds, technique)) {
-
       // Incrementar contador de ciclos completados
       const updatedStats = updatePomodoroCount(timerState.pomodoroStats);
       const updatedTechnique = incrementCycle(technique);
