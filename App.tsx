@@ -7,7 +7,13 @@ import {
   Sun,
   BookOpen,
 } from "lucide-react";
-import { StudySession, ViewState, TimerState, Objective } from "./types";
+import {
+  StudySession,
+  ViewState,
+  TimerState,
+  Objective,
+  StudyTechnique,
+} from "./types";
 import {
   loadSessions,
   saveSessions,
@@ -17,7 +23,21 @@ import {
   saveObjectives,
   loadWeeklyTarget,
   saveWeeklyTarget,
+  savePomodoroStats,
+  updatePomodoroCount,
+  loadCategories,
+  saveCategories,
 } from "./services/storageService";
+import {
+  getTechniqueConfig,
+  shouldTransitionToBreak,
+  shouldTransitionToWork,
+  startBreakTime,
+  startWorkTime,
+  incrementCycle,
+  resetCycles,
+} from "./services/techniqueService";
+import { soundService } from "./services/soundService";
 import { faviconService } from "./services/faviconService";
 import Timer from "./components/Timer";
 import History from "./components/History";
@@ -31,6 +51,9 @@ function App() {
   // New State for Goals
   const [objectives, setObjectives] = useState<Objective[]>([]);
   const [weeklyTarget, setWeeklyTarget] = useState<number>(10);
+  const [categories, setCategories] = useState<string[]>(() =>
+    loadCategories()
+  );
 
   // Lifted Timer State
   const [timerState, setTimerState] = useState<TimerState>(() =>
@@ -50,6 +73,11 @@ function App() {
     ) {
       setDarkMode(true);
     }
+
+    // Solicitar permisos de notificación
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
   }, []);
 
   // Persistence Effects
@@ -64,6 +92,10 @@ function App() {
   useEffect(() => {
     saveWeeklyTarget(weeklyTarget);
   }, [weeklyTarget]);
+
+  useEffect(() => {
+    saveCategories(categories);
+  }, [categories]);
 
   useEffect(() => {
     if (darkMode) {
@@ -99,6 +131,72 @@ function App() {
     }
     return timerState.accumulatedTime;
   }, [timerState, now]);
+
+  // Verificar transiciones automáticas entre trabajo y descanso
+  useEffect(() => {
+    if (!timerState.isRunning || timerState.technique.type === "libre") return;
+
+    const technique = timerState.technique;
+
+    // Transición a descanso
+    if (shouldTransitionToBreak(elapsedSeconds, technique)) {
+      // Sonido de descanso
+      soundService.playSound("break");
+
+      setTimerState((prev) => ({
+        ...prev,
+        isRunning: false,
+        startTime: null,
+        accumulatedTime: 0,
+        technique: startBreakTime(prev.technique),
+      }));
+
+      // Notificación
+      if ("Notification" in window && Notification.permission === "granted") {
+        new Notification("FocusFlow - ¡Tiempo de Descanso!", {
+          body: `¡Excelente trabajo! Tómate ${
+            technique.breakDuration / 60
+          } minutos de descanso.`,
+          icon: "/favicon.png",
+        });
+      }
+      return;
+    }
+
+    // Transición a trabajo (completar ciclo)
+    if (shouldTransitionToWork(elapsedSeconds, technique)) {
+      // Sonido de ciclo completado
+      soundService.playSound("complete");
+
+      // Incrementar contador de ciclos completados
+      const updatedStats = updatePomodoroCount(timerState.pomodoroStats);
+      const updatedTechnique = incrementCycle(technique);
+
+      setTimerState((prev) => ({
+        ...prev,
+        isRunning: false,
+        startTime: null,
+        accumulatedTime: 0,
+        technique: startWorkTime(updatedTechnique),
+        pomodoroStats: updatedStats,
+      }));
+
+      savePomodoroStats(updatedStats);
+
+      // Notificación de ciclo completado
+      if ("Notification" in window && Notification.permission === "granted") {
+        new Notification("FocusFlow - ¡Ciclo Completado!", {
+          body: `¡Felicidades! Has completado el ciclo ${updatedTechnique.cyclesCompleted}. ¡Sigue así!`,
+          icon: "/favicon.png",
+        });
+      }
+    }
+  }, [
+    elapsedSeconds,
+    timerState.isRunning,
+    timerState.technique,
+    timerState.pomodoroStats,
+  ]);
 
   // Update favicon and page title based on timer state
   useEffect(() => {
@@ -180,16 +278,51 @@ function App() {
     setWeeklyTarget(hours);
   };
 
-  // Timer Handlers
-  const handleStartTimer = () => {
+  const handleAddCategory = (category: string) => {
+    const value = category.trim();
+    if (!value) return;
+    setCategories((prev) => {
+      const exists = prev.some((c) => c.toLowerCase() === value.toLowerCase());
+      if (exists) return prev;
+      return [value, ...prev].slice(0, 20);
+    });
+  };
+
+  const handleTechniqueChange = (technique: StudyTechnique) => {
     setTimerState((prev) => ({
       ...prev,
-      isRunning: true,
-      startTime: Date.now(),
+      technique: getTechniqueConfig(technique),
     }));
   };
 
+  // Timer Handlers
+  const handleStartTimer = () => {
+    console.log("🟢 [App] handleStartTimer ejecutado");
+    console.log("🟢 [App] Estado previo:", {
+      isRunning: timerState.isRunning,
+      accumulatedTime: timerState.accumulatedTime,
+      technique: timerState.technique.type,
+    });
+
+    soundService.playSound("start");
+    console.log("🟢 [App] Sonido reproducido");
+
+    setTimerState((prev) => {
+      console.log("🟢 [App] setTimerState ejecutándose...");
+      const newState = {
+        ...prev,
+        isRunning: true,
+        startTime: Date.now(),
+      };
+      console.log("🟢 [App] Nuevo estado:", newState);
+      return newState;
+    });
+
+    console.log("🟢 [App] handleStartTimer completado");
+  };
+
   const handlePauseTimer = () => {
+    soundService.playSound("pause");
     setTimerState((prev) => {
       if (!prev.startTime) return prev;
       // Calculate time passed in this segment
@@ -213,13 +346,15 @@ function App() {
     ) {
       return;
     }
-    setTimerState({
+    setTimerState((prev) => ({
       isRunning: false,
       startTime: null,
       accumulatedTime: 0,
       subject: "General",
       notes: "",
-    });
+      technique: resetCycles(getTechniqueConfig(prev.technique.type)),
+      pomodoroStats: prev.pomodoroStats,
+    }));
   };
 
   const handleSaveSession = () => {
@@ -240,13 +375,15 @@ function App() {
     addSession(newSession);
 
     // Reset timer after save
-    setTimerState({
+    setTimerState((prev) => ({
       isRunning: false,
       startTime: null,
       accumulatedTime: 0,
       subject: "General",
       notes: "",
-    });
+      technique: resetCycles(getTechniqueConfig(prev.technique.type)),
+      pomodoroStats: prev.pomodoroStats,
+    }));
 
     // Optionally go to history or show a success message?
     // For now stay on timer to allow next session immediately.
@@ -376,19 +513,20 @@ function App() {
               Tu tiempo de enfoque
             </h2>
             <p className="text-slate-500 dark:text-slate-400 mb-8">
-              Elige una asignatura y comienza a medir tu progreso.
+              Elige una categoría y comienza a medir tu progreso.
             </p>
             <Timer
               isRunning={timerState.isRunning}
               elapsedSeconds={elapsedSeconds}
               subject={timerState.subject}
-              notes={timerState.notes}
+              technique={timerState.technique}
+              pomodoroStats={timerState.pomodoroStats}
+              savedCategories={categories}
               onSubjectChange={(val) =>
                 setTimerState((prev) => ({ ...prev, subject: val }))
               }
-              onNotesChange={(val) =>
-                setTimerState((prev) => ({ ...prev, notes: val }))
-              }
+              onAddCategory={handleAddCategory}
+              onTechniqueChange={handleTechniqueChange}
               onStart={handleStartTimer}
               onPause={handlePauseTimer}
               onReset={handleResetTimer}
