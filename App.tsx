@@ -37,7 +37,6 @@ import {
   incrementCycle,
   resetCycles,
 } from "./services/techniqueService";
-import { soundService } from "./services/soundService";
 import { faviconService } from "./services/faviconService";
 import Timer from "./components/Timer";
 import History from "./components/History";
@@ -140,8 +139,6 @@ function App() {
 
     // Transición a descanso
     if (shouldTransitionToBreak(elapsedSeconds, technique)) {
-      // Sonido de descanso
-      soundService.playSound("break");
 
       setTimerState((prev) => ({
         ...prev,
@@ -165,8 +162,6 @@ function App() {
 
     // Transición a trabajo (completar ciclo)
     if (shouldTransitionToWork(elapsedSeconds, technique)) {
-      // Sonido de ciclo completado
-      soundService.playSound("complete");
 
       // Incrementar contador de ciclos completados
       const updatedStats = updatePomodoroCount(timerState.pomodoroStats);
@@ -304,9 +299,6 @@ function App() {
       technique: timerState.technique.type,
     });
 
-    soundService.playSound("start");
-    console.log("🟢 [App] Sonido reproducido");
-
     setTimerState((prev) => {
       console.log("🟢 [App] setTimerState ejecutándose...");
       const newState = {
@@ -322,7 +314,6 @@ function App() {
   };
 
   const handlePauseTimer = () => {
-    soundService.playSound("pause");
     setTimerState((prev) => {
       if (!prev.startTime) return prev;
       // Calculate time passed in this segment
