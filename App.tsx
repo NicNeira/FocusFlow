@@ -73,10 +73,6 @@ function App() {
       setDarkMode(true);
     }
 
-    // Solicitar permisos de notificación
-    if ("Notification" in window && Notification.permission === "default") {
-      Notification.requestPermission();
-    }
   }, []);
 
   // Persistence Effects
