@@ -401,7 +401,7 @@ function App() {
     <div className="min-h-screen flex flex-col font-sans bg-gray-50 dark:bg-slate-950 transition-colors duration-300">
       {/* Header */}
       <header className="sticky top-0 z-50 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-6 py-4">
-        <div className="relative flex items-center">
+        <div className="relative flex items-center justify-between">
           {/* Logo */}
           <div className="flex items-center space-x-2">
             <div
@@ -418,8 +418,8 @@ function App() {
             </h1>
           </div>
 
-          {/* Navigation - Centered */}
-          <nav className="absolute left-1/2 transform -translate-x-1/2 flex items-center space-x-2">
+          {/* Navigation - Centered (hidden on mobile, shown in bottom nav) */}
+          <nav className="hidden md:flex absolute left-1/2 transform -translate-x-1/2 items-center space-x-2">
             <HeaderNavButton
               view="dashboard"
               icon={LayoutDashboard}
@@ -450,7 +450,7 @@ function App() {
           </nav>
 
           {/* Right side - Mini Timer and Theme Toggle */}
-          <div className="ml-auto flex items-center space-x-3">
+          <div className="flex items-center space-x-3">
             {/* Mini Timer Display in Header if not on Timer View */}
             {currentView !== "timer" && elapsedSeconds > 0 && (
               <div
@@ -490,7 +490,7 @@ function App() {
       </header>
 
       {/* Main Content Area */}
-      <main className="flex-1 container mx-auto px-4 py-6 max-w-5xl">
+      <main className="flex-1 container mx-auto px-4 py-6 pb-24 md:pb-6 max-w-5xl">
         {currentView === "timer" && (
           <div className="flex flex-col items-center animate-fade-in">
             <h2 className="text-3xl font-bold mb-2 text-slate-800 dark:text-white">
@@ -533,6 +533,50 @@ function App() {
           <History sessions={sessions} onDeleteSession={deleteSession} />
         )}
       </main>
+
+      {/* Mobile Bottom Navigation */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 dark:bg-slate-950/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 px-4 py-2 safe-area-bottom">
+        <div className="flex items-center justify-around">
+          <button
+            onClick={() => setCurrentView("dashboard")}
+            className={`flex flex-col items-center py-2 px-4 rounded-lg transition-all ${
+              currentView === "dashboard"
+                ? "text-primary-600 dark:text-primary-400"
+                : "text-slate-500 dark:text-slate-400"
+            }`}
+          >
+            <LayoutDashboard className="w-6 h-6" />
+            <span className="text-xs mt-1 font-medium">Dashboard</span>
+          </button>
+
+          <button
+            onClick={() => setCurrentView("timer")}
+            className={`relative flex flex-col items-center py-2 px-4 rounded-lg transition-all ${
+              currentView === "timer"
+                ? "text-primary-600 dark:text-primary-400"
+                : "text-slate-500 dark:text-slate-400"
+            }`}
+          >
+            {timerState.isRunning && (
+              <span className="absolute top-1 right-3 w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse"></span>
+            )}
+            <TimerIcon className="w-6 h-6" />
+            <span className="text-xs mt-1 font-medium">Timer</span>
+          </button>
+
+          <button
+            onClick={() => setCurrentView("history")}
+            className={`flex flex-col items-center py-2 px-4 rounded-lg transition-all ${
+              currentView === "history"
+                ? "text-primary-600 dark:text-primary-400"
+                : "text-slate-500 dark:text-slate-400"
+            }`}
+          >
+            <HistoryIcon className="w-6 h-6" />
+            <span className="text-xs mt-1 font-medium">Historial</span>
+          </button>
+        </div>
+      </nav>
     </div>
   );
 }
