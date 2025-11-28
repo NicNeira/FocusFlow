@@ -6,6 +6,7 @@ import {
   Moon,
   Sun,
   BookOpen,
+  Settings,
 } from "lucide-react";
 import {
   StudySession,
@@ -13,6 +14,7 @@ import {
   TimerState,
   Objective,
   StudyTechnique,
+  NotificationSettings as NotificationSettingsType,
 } from "./types";
 import {
   loadSessions,
@@ -27,6 +29,8 @@ import {
   updatePomodoroCount,
   loadCategories,
   saveCategories,
+  loadNotificationSettings,
+  saveNotificationSettings,
 } from "./services/storageService";
 import {
   getTechniqueConfig,
@@ -38,9 +42,12 @@ import {
   resetCycles,
 } from "./services/techniqueService";
 import { faviconService } from "./services/faviconService";
+import { notificationService } from "./services/notificationService";
+import { audioService } from "./services/audioService";
 import Timer from "./components/Timer";
 import History from "./components/History";
 import Dashboard from "./components/Dashboard";
+import NotificationSettings from "./components/NotificationSettings";
 
 function App() {
   const [sessions, setSessions] = useState<StudySession[]>([]);
@@ -53,6 +60,10 @@ function App() {
   const [categories, setCategories] = useState<string[]>(() =>
     loadCategories()
   );
+
+  // Notification Settings
+  const [notificationSettings, setNotificationSettings] =
+    useState<NotificationSettingsType>(() => loadNotificationSettings());
 
   // Lifted Timer State
   const [timerState, setTimerState] = useState<TimerState>(() =>
@@ -90,6 +101,13 @@ function App() {
   useEffect(() => {
     saveCategories(categories);
   }, [categories]);
+
+  useEffect(() => {
+    saveNotificationSettings(notificationSettings);
+    // Sincronizar volumen del servicio de audio
+    audioService.setVolume(notificationSettings.soundVolume);
+    audioService.setEnabled(notificationSettings.soundEnabled);
+  }, [notificationSettings]);
 
   useEffect(() => {
     if (darkMode) {
@@ -142,15 +160,22 @@ function App() {
         technique: startBreakTime(prev.technique),
       }));
 
-      // Notificación
-      if ("Notification" in window && Notification.permission === "granted") {
-        new Notification("FocusFlow - ¡Tiempo de Descanso!", {
-          body: `¡Excelente trabajo! Tómate ${
-            technique.breakDuration / 60
-          } minutos de descanso.`,
-          icon: "/favicon.png",
-        });
+      // Notificación y sonido de fin de trabajo
+      if (notificationSettings.enabled && notificationSettings.workEndEnabled) {
+        notificationService.notifyWorkPeriodEnd(
+          technique.type === 'pomodoro' ? 'Pomodoro' : '52-17',
+          technique.breakDuration
+        );
       }
+
+      if (notificationSettings.soundEnabled) {
+        audioService.playWorkEnd();
+      }
+
+      if (notificationSettings.vibrationEnabled) {
+        audioService.vibrate([200, 100, 200]);
+      }
+
       return;
     }
 
@@ -171,12 +196,26 @@ function App() {
 
       savePomodoroStats(updatedStats);
 
+      // Notificación de fin de descanso
+      if (notificationSettings.enabled && notificationSettings.breakEndEnabled) {
+        notificationService.notifyBreakPeriodEnd();
+      }
+
       // Notificación de ciclo completado
-      if ("Notification" in window && Notification.permission === "granted") {
-        new Notification("FocusFlow - ¡Ciclo Completado!", {
-          body: `¡Felicidades! Has completado el ciclo ${updatedTechnique.cyclesCompleted}. ¡Sigue así!`,
-          icon: "/favicon.png",
-        });
+      if (notificationSettings.enabled && notificationSettings.cycleCompleteEnabled) {
+        notificationService.notifyCycleComplete(
+          updatedTechnique.cyclesCompleted,
+          updatedStats.daily,
+          updatedStats.weekly
+        );
+      }
+
+      if (notificationSettings.soundEnabled) {
+        audioService.playCycleComplete();
+      }
+
+      if (notificationSettings.vibrationEnabled) {
+        audioService.vibrate([200, 100, 200, 100, 200]);
       }
     }
   }, [
@@ -184,6 +223,7 @@ function App() {
     timerState.isRunning,
     timerState.technique,
     timerState.pomodoroStats,
+    notificationSettings,
   ]);
 
   // Update favicon and page title based on timer state
@@ -281,6 +321,12 @@ function App() {
       ...prev,
       technique: getTechniqueConfig(technique),
     }));
+  };
+
+  const handleNotificationSettingsChange = (
+    settings: NotificationSettingsType
+  ) => {
+    setNotificationSettings(settings);
   };
 
   // Timer Handlers
@@ -447,10 +493,16 @@ function App() {
               icon={HistoryIcon}
               label="Historial"
             />
+
+            <HeaderNavButton
+              view="settings"
+              icon={Settings}
+              label="Ajustes"
+            />
           </nav>
 
           {/* Right side - Mini Timer and Theme Toggle */}
-          <div className="flex items-center space-x-3">
+          <div className="ml-auto flex items-center space-x-3">
             {/* Mini Timer Display in Header if not on Timer View */}
             {currentView !== "timer" && elapsedSeconds > 0 && (
               <div
@@ -532,6 +584,20 @@ function App() {
         {currentView === "history" && (
           <History sessions={sessions} onDeleteSession={deleteSession} />
         )}
+        {currentView === "settings" && (
+          <div className="max-w-2xl mx-auto">
+            <h2 className="text-3xl font-bold mb-2 text-slate-800 dark:text-white">
+              Ajustes
+            </h2>
+            <p className="text-slate-500 dark:text-slate-400 mb-8">
+              Configura notificaciones, sonidos y preferencias de la aplicación.
+            </p>
+            <NotificationSettings
+              settings={notificationSettings}
+              onSettingsChange={handleNotificationSettingsChange}
+            />
+          </div>
+        )}
       </main>
 
       {/* Mobile Bottom Navigation */}
@@ -539,7 +605,7 @@ function App() {
         <div className="flex items-center justify-around">
           <button
             onClick={() => setCurrentView("dashboard")}
-            className={`flex flex-col items-center py-2 px-4 rounded-lg transition-all ${
+            className={`flex flex-col items-center py-2 px-3 rounded-lg transition-all ${
               currentView === "dashboard"
                 ? "text-primary-600 dark:text-primary-400"
                 : "text-slate-500 dark:text-slate-400"
@@ -551,14 +617,14 @@ function App() {
 
           <button
             onClick={() => setCurrentView("timer")}
-            className={`relative flex flex-col items-center py-2 px-4 rounded-lg transition-all ${
+            className={`relative flex flex-col items-center py-2 px-3 rounded-lg transition-all ${
               currentView === "timer"
                 ? "text-primary-600 dark:text-primary-400"
                 : "text-slate-500 dark:text-slate-400"
             }`}
           >
             {timerState.isRunning && (
-              <span className="absolute top-1 right-3 w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse"></span>
+              <span className="absolute top-1 right-2 w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse"></span>
             )}
             <TimerIcon className="w-6 h-6" />
             <span className="text-xs mt-1 font-medium">Timer</span>
@@ -566,7 +632,7 @@ function App() {
 
           <button
             onClick={() => setCurrentView("history")}
-            className={`flex flex-col items-center py-2 px-4 rounded-lg transition-all ${
+            className={`flex flex-col items-center py-2 px-3 rounded-lg transition-all ${
               currentView === "history"
                 ? "text-primary-600 dark:text-primary-400"
                 : "text-slate-500 dark:text-slate-400"
@@ -574,6 +640,18 @@ function App() {
           >
             <HistoryIcon className="w-6 h-6" />
             <span className="text-xs mt-1 font-medium">Historial</span>
+          </button>
+
+          <button
+            onClick={() => setCurrentView("settings")}
+            className={`flex flex-col items-center py-2 px-3 rounded-lg transition-all ${
+              currentView === "settings"
+                ? "text-primary-600 dark:text-primary-400"
+                : "text-slate-500 dark:text-slate-400"
+            }`}
+          >
+            <Settings className="w-6 h-6" />
+            <span className="text-xs mt-1 font-medium">Ajustes</span>
           </button>
         </div>
       </nav>
