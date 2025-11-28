@@ -1,4 +1,4 @@
-import { StudySession, TimerState, Objective, PomodoroStats } from '../types';
+import { StudySession, TimerState, Objective, PomodoroStats, NotificationSettings } from '../types';
 import { getTechniqueConfig } from './techniqueService';
 
 const STORAGE_KEY = 'focusflow_sessions_v1';
@@ -7,6 +7,7 @@ const OBJECTIVES_KEY = 'focusflow_objectives_v1';
 const WEEKLY_TARGET_KEY = 'focusflow_weekly_target_v1';
 const POMODORO_STATS_KEY = 'focusflow_pomodoro_stats_v1';
 const CATEGORIES_KEY = 'focusflow_categories_v1';
+const NOTIFICATION_SETTINGS_KEY = 'focusflow_notification_settings_v1';
 
 export const saveSessions = (sessions: StudySession[]): void => {
   try {
@@ -197,5 +198,44 @@ export const saveCategories = (categories: string[]): void => {
     localStorage.setItem(CATEGORIES_KEY, JSON.stringify(categories));
   } catch (e) {
     console.error('Error saving categories', e);
+  }
+};
+
+// Funciones para configuración de notificaciones
+export const saveNotificationSettings = (settings: NotificationSettings): void => {
+  try {
+    localStorage.setItem(NOTIFICATION_SETTINGS_KEY, JSON.stringify(settings));
+  } catch (e) {
+    console.error('Error saving notification settings', e);
+  }
+};
+
+export const loadNotificationSettings = (): NotificationSettings => {
+  try {
+    const data = localStorage.getItem(NOTIFICATION_SETTINGS_KEY);
+    if (data) {
+      return JSON.parse(data);
+    }
+    // Valores por defecto
+    return {
+      enabled: false, // No habilitado por defecto hasta que el usuario lo active
+      workEndEnabled: true,
+      breakEndEnabled: true,
+      cycleCompleteEnabled: true,
+      soundEnabled: true,
+      soundVolume: 0.5,
+      vibrationEnabled: true,
+    };
+  } catch (e) {
+    console.error('Error loading notification settings', e);
+    return {
+      enabled: false,
+      workEndEnabled: true,
+      breakEndEnabled: true,
+      cycleCompleteEnabled: true,
+      soundEnabled: true,
+      soundVolume: 0.5,
+      vibrationEnabled: true,
+    };
   }
 };
