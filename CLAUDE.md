@@ -121,6 +121,52 @@ All shared types are defined in `types.ts`:
 - Limited to 20 most recent categories
 - Deduplicated case-insensitively
 
+## Notifications and Audio System
+
+FocusFlow includes a comprehensive notification and audio alert system for technique transitions.
+
+**Architecture:**
+- `notificationService.ts` - Manages browser/PWA notifications with permission handling
+- `audioService.ts` - Handles sound playback with Web Audio API fallbacks
+- `NotificationSettings.tsx` - UI component for user preferences
+- Settings stored in localStorage with key `focusflow_notification_settings_v1`
+
+**Notification Types:**
+1. **Work Period End** - Alerts when work time finishes (Pomodoro/52-17)
+2. **Break Period End** - Notifies when break time completes
+3. **Cycle Complete** - Shows statistics when full cycle finishes (work + break)
+4. **Achievements** - Custom notifications for milestones
+
+**Audio System:**
+- Dual-mode: Attempts to play MP3 files from `/sounds/`, falls back to Web Audio API tones
+- Sound files: `work-end.mp3`, `break-end.mp3`, `cycle-complete.mp3`, `achievement.mp3`
+- Web Audio API generates pleasant sine wave tones if files unavailable
+- Volume control (0.0-1.0) persisted in localStorage
+
+**User Preferences:**
+- Individual toggles for each notification type
+- Sound enable/disable with volume slider
+- Vibration support for mobile devices
+- Permission banner with graceful degradation if denied
+- Settings accessible via Settings view (4th nav item)
+
+**Integration Points:**
+- Notifications triggered in App.tsx transition effects (lines 147-227)
+- Uses user preferences from `notificationSettings` state
+- Vibration patterns: `[200, 100, 200]` for work end, `[200, 100, 200, 100, 200]` for cycle complete
+
+**Permission Flow:**
+1. User navigates to Settings
+2. Banner prompts for notification permission if not granted
+3. On acceptance, test notification is shown
+4. If denied, warning banner displays with instructions
+5. Notifications only fire when enabled + permission granted
+
+**PWA Integration:**
+- Service worker can show notifications even when app is closed
+- Uses `registration.showNotification()` when service worker available
+- Falls back to standard `Notification` API otherwise
+
 ## Progressive Web App (PWA)
 
 FocusFlow is configured as a Progressive Web App using `vite-plugin-pwa`.

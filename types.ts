@@ -13,7 +13,7 @@ export interface SubjectStats {
   sessionCount: number;
 }
 
-export type ViewState = 'timer' | 'dashboard' | 'history';
+export type ViewState = 'timer' | 'dashboard' | 'history' | 'settings';
 
 export interface AIInsight {
   text: string;
@@ -56,4 +56,15 @@ export interface Objective {
   text: string;
   isCompleted: boolean;
   createdAt: number;
+}
+
+// Configuración de notificaciones y sonido
+export interface NotificationSettings {
+  enabled: boolean;
+  workEndEnabled: boolean;
+  breakEndEnabled: boolean;
+  cycleCompleteEnabled: boolean;
+  soundEnabled: boolean;
+  soundVolume: number; // 0.0 to 1.0
+  vibrationEnabled: boolean;
 }
