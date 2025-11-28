@@ -52,6 +52,24 @@ Una aplicación web moderna para gestionar tu tiempo de estudio con técnicas pr
 2. Run the app:
    `npm run dev`
 
+## 📱 Progressive Web App (PWA)
+
+FocusFlow es una Progressive Web App completamente funcional:
+
+- **Instalable**: Se puede instalar en desktop y móvil como una aplicación nativa
+- **Offline**: Funciona sin conexión después de la primera visita
+- **Actualización automática**: Se actualiza automáticamente cuando hay nueva versión
+- **Optimizada**: Caché inteligente para mejor rendimiento
+
+### Instalación
+
+Visita la aplicación en tu navegador y:
+- **Desktop**: Click en el icono de instalación en la barra de direcciones
+- **iOS**: Safari > Compartir > "Agregar a pantalla de inicio"
+- **Android**: Chrome > Menú > "Instalar aplicación"
+
+Ver [PWA-SETUP.md](./PWA-SETUP.md) para más detalles sobre la configuración PWA.
+
 ## 🎯 Cómo Usar
 
 1. **Selecciona tu técnica**: Elige entre Libre, Pomodoro o 52-17

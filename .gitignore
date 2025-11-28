@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# PWA generated files (keep source SVG, ignore generated PNGs)
+# Uncomment if you generate PNG icons:
+# public/icon-192x192.png
+# public/icon-512x512.png
