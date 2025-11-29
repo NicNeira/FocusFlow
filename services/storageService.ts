@@ -1,4 +1,4 @@
-import { StudySession, TimerState, Objective, PomodoroStats, NotificationSettings } from '../types';
+import { StudySession, TimerState, Objective, PomodoroStats, NotificationSettings, WeeklyGoalsByCategory } from '../types';
 import { getTechniqueConfig } from './techniqueService';
 
 const STORAGE_KEY = 'focusflow_sessions_v1';
@@ -8,6 +8,7 @@ const WEEKLY_TARGET_KEY = 'focusflow_weekly_target_v1';
 const POMODORO_STATS_KEY = 'focusflow_pomodoro_stats_v1';
 const CATEGORIES_KEY = 'focusflow_categories_v1';
 const NOTIFICATION_SETTINGS_KEY = 'focusflow_notification_settings_v1';
+const CATEGORY_GOALS_KEY = 'focusflow_category_goals_v1';
 
 export const saveSessions = (sessions: StudySession[]): void => {
   try {
@@ -238,4 +239,49 @@ export const loadNotificationSettings = (): NotificationSettings => {
       vibrationEnabled: true,
     };
   }
+};
+
+// Funciones para metas semanales por categoría
+export const saveCategoryGoals = (goals: WeeklyGoalsByCategory): void => {
+  try {
+    localStorage.setItem(CATEGORY_GOALS_KEY, JSON.stringify(goals));
+  } catch (e) {
+    console.error('Error saving category goals', e);
+  }
+};
+
+export const loadCategoryGoals = (): WeeklyGoalsByCategory => {
+  try {
+    const data = localStorage.getItem(CATEGORY_GOALS_KEY);
+    return data ? JSON.parse(data) : {};
+  } catch (e) {
+    console.error('Error loading category goals', e);
+    return {};
+  }
+};
+
+// Utilidades para resumen mensual
+export const getSessionsByMonth = (sessions: StudySession[], month: number, year: number): StudySession[] => {
+  return sessions.filter(session => {
+    const date = new Date(session.endTime);
+    return date.getMonth() === month && date.getFullYear() === year;
+  });
+};
+
+export const getLast6Months = (): { month: number; year: number; label: string }[] => {
+  const months: { month: number; year: number; label: string }[] = [];
+  const now = new Date();
+  const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 
+                      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+  
+  for (let i = 0; i < 6; i++) {
+    const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    months.push({
+      month: date.getMonth(),
+      year: date.getFullYear(),
+      label: `${monthNames[date.getMonth()]} ${date.getFullYear()}`
+    });
+  }
+  
+  return months;
 };

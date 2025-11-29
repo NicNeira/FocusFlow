@@ -15,6 +15,7 @@ import {
   Objective,
   StudyTechnique,
   NotificationSettings as NotificationSettingsType,
+  WeeklyGoalsByCategory,
 } from "./types";
 import {
   loadSessions,
@@ -31,6 +32,8 @@ import {
   saveCategories,
   loadNotificationSettings,
   saveNotificationSettings,
+  loadCategoryGoals,
+  saveCategoryGoals,
 } from "./services/storageService";
 import {
   getTechniqueConfig,
@@ -59,6 +62,9 @@ function App() {
   const [weeklyTarget, setWeeklyTarget] = useState<number>(10);
   const [categories, setCategories] = useState<string[]>(() =>
     loadCategories()
+  );
+  const [categoryGoals, setCategoryGoals] = useState<WeeklyGoalsByCategory>(() =>
+    loadCategoryGoals()
   );
 
   // Notification Settings
@@ -97,6 +103,10 @@ function App() {
   useEffect(() => {
     saveWeeklyTarget(weeklyTarget);
   }, [weeklyTarget]);
+
+  useEffect(() => {
+    saveCategoryGoals(categoryGoals);
+  }, [categoryGoals]);
 
   useEffect(() => {
     saveCategories(categories);
@@ -304,6 +314,10 @@ function App() {
 
   const handleUpdateWeeklyTarget = (hours: number) => {
     setWeeklyTarget(hours);
+  };
+
+  const handleUpdateCategoryGoals = (goals: WeeklyGoalsByCategory) => {
+    setCategoryGoals(goals);
   };
 
   const handleAddCategory = (category: string) => {
@@ -575,10 +589,13 @@ function App() {
             sessions={sessions}
             objectives={objectives}
             weeklyTarget={weeklyTarget}
+            categories={categories}
+            categoryGoals={categoryGoals}
             onAddObjective={handleAddObjective}
             onToggleObjective={handleToggleObjective}
             onDeleteObjective={handleDeleteObjective}
             onUpdateWeeklyTarget={handleUpdateWeeklyTarget}
+            onUpdateCategoryGoals={handleUpdateCategoryGoals}
           />
         )}
         {currentView === "history" && (
