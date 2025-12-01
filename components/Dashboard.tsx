@@ -64,7 +64,9 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [newObjective, setNewObjective] = useState("");
   const [isEditingTarget, setIsEditingTarget] = useState(false);
   const [tempTarget, setTempTarget] = useState(weeklyTarget.toString());
-  const [editingCategoryGoal, setEditingCategoryGoal] = useState<string | null>(null);
+  const [editingCategoryGoal, setEditingCategoryGoal] = useState<string | null>(
+    null
+  );
   const [tempCategoryGoal, setTempCategoryGoal] = useState("");
 
   // Stats Calculations
@@ -153,10 +155,12 @@ const Dashboard: React.FC<DashboardProps> = ({
     const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1);
     startOfWeek.setDate(diff);
 
-    const weekSessions = sessions.filter((s) => s.endTime >= startOfWeek.getTime());
-    
+    const weekSessions = sessions.filter(
+      (s) => s.endTime >= startOfWeek.getTime()
+    );
+
     const progress: Record<string, { current: number; target: number }> = {};
-    
+
     categories.forEach((cat) => {
       const catSeconds = weekSessions
         .filter((s) => s.subject === cat)
@@ -166,7 +170,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         target: categoryGoals[cat] || 0,
       };
     });
-    
+
     return progress;
   }, [sessions, categories, categoryGoals]);
 
@@ -314,15 +318,23 @@ const Dashboard: React.FC<DashboardProps> = ({
           {categories.length > 0 && (
             <div className="mt-6 pt-4 border-t border-slate-200 dark:border-slate-700">
               <h4 className="text-sm font-semibold mb-3 flex items-center text-slate-600 dark:text-slate-400">
-                <Layers className="w-4 h-4 mr-2 text-emerald-500" /> Por Categoría
+                <Layers className="w-4 h-4 mr-2 text-emerald-500" /> Por
+                Categoría
               </h4>
               <div className="space-y-3 max-h-48 overflow-y-auto pr-1 custom-scrollbar">
                 {categories.map((category) => {
-                  const progress = categoryProgress[category] || { current: 0, target: 0 };
-                  const percentage = progress.target > 0 
-                    ? Math.min(100, (progress.current / progress.target) * 100) 
-                    : 0;
-                  
+                  const progress = categoryProgress[category] || {
+                    current: 0,
+                    target: 0,
+                  };
+                  const percentage =
+                    progress.target > 0
+                      ? Math.min(
+                          100,
+                          (progress.current / progress.target) * 100
+                        )
+                      : 0;
+
                   return (
                     <div key={category} className="space-y-1">
                       <div className="flex items-center justify-between">
@@ -335,7 +347,9 @@ const Dashboard: React.FC<DashboardProps> = ({
                               <input
                                 type="number"
                                 value={tempCategoryGoal}
-                                onChange={(e) => setTempCategoryGoal(e.target.value)}
+                                onChange={(e) =>
+                                  setTempCategoryGoal(e.target.value)
+                                }
                                 className="w-14 p-1 text-xs border rounded text-center dark:bg-slate-800 dark:border-slate-700"
                                 min="0"
                                 step="0.5"
@@ -352,12 +366,17 @@ const Dashboard: React.FC<DashboardProps> = ({
                           ) : (
                             <>
                               <span className="text-xs text-slate-600 dark:text-slate-400">
-                                {progress.current}h / {progress.target > 0 ? `${progress.target}h` : 'Sin meta'}
+                                {progress.current}h /{" "}
+                                {progress.target > 0
+                                  ? `${progress.target}h`
+                                  : "Sin meta"}
                               </span>
                               <button
                                 onClick={() => {
                                   setEditingCategoryGoal(category);
-                                  setTempCategoryGoal(progress.target.toString());
+                                  setTempCategoryGoal(
+                                    progress.target.toString()
+                                  );
                                 }}
                                 className="text-slate-400 hover:text-primary-500 transition-colors"
                               >
@@ -370,7 +389,9 @@ const Dashboard: React.FC<DashboardProps> = ({
                       <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden">
                         <div
                           className={`h-full rounded-full transition-all duration-500 ease-out ${
-                            percentage >= 100 ? 'bg-emerald-500' : 'bg-primary-500'
+                            percentage >= 100
+                              ? "bg-emerald-500"
+                              : "bg-primary-500"
                           }`}
                           style={{ width: `${percentage}%` }}
                         ></div>
@@ -497,7 +518,10 @@ const Dashboard: React.FC<DashboardProps> = ({
                     boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
                   }}
                   cursor={{ fill: "transparent" }}
-                  formatter={(value: number) => [formatHoursLong(value), "Tiempo"]}
+                  formatter={(value: number) => [
+                    formatHoursLong(value),
+                    "Tiempo",
+                  ]}
                 />
                 <Bar dataKey="hours" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
               </BarChart>
@@ -527,7 +551,12 @@ const Dashboard: React.FC<DashboardProps> = ({
                     />
                   ))}
                 </Pie>
-                <Tooltip formatter={(value: number) => [formatHoursLong(value), "Tiempo"]} />
+                <Tooltip
+                  formatter={(value: number) => [
+                    formatHoursLong(value),
+                    "Tiempo",
+                  ]}
+                />
                 <Legend />
               </PieChart>
             </ResponsiveContainer>

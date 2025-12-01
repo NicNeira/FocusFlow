@@ -1,9 +1,22 @@
-import React, { useState, useEffect } from 'react';
-import { Bell, BellOff, Volume2, VolumeX, Vibrate, X, CheckCircle, Palette, Check } from 'lucide-react';
-import { NotificationSettings as NotificationSettingsType, ColorPaletteId } from '../types';
-import { notificationService } from '../services/notificationService';
-import { audioService } from '../services/audioService';
-import { themeService, COLOR_PALETTES } from '../services/themeService';
+import React, { useState, useEffect } from "react";
+import {
+  Bell,
+  BellOff,
+  Volume2,
+  VolumeX,
+  Vibrate,
+  X,
+  CheckCircle,
+  Palette,
+  Check,
+} from "lucide-react";
+import {
+  NotificationSettings as NotificationSettingsType,
+  ColorPaletteId,
+} from "../types";
+import { notificationService } from "../services/notificationService";
+import { audioService } from "../services/audioService";
+import { themeService, COLOR_PALETTES } from "../services/themeService";
 
 interface SettingsProps {
   settings: NotificationSettingsType;
@@ -18,7 +31,7 @@ const SettingsComponent: React.FC<SettingsProps> = ({
   currentPalette,
   onPaletteChange,
 }) => {
-  const [permissionStatus, setPermissionStatus] = useState<string>('default');
+  const [permissionStatus, setPermissionStatus] = useState<string>("default");
   const [showPermissionBanner, setShowPermissionBanner] = useState(false);
   const [testingSound, setTestingSound] = useState(false);
 
@@ -28,7 +41,7 @@ const SettingsComponent: React.FC<SettingsProps> = ({
     setPermissionStatus(status);
 
     // Mostrar banner si los permisos no han sido concedidos
-    if (status === 'default' && settings.enabled) {
+    if (status === "default" && settings.enabled) {
       setShowPermissionBanner(true);
     }
   }, [settings.enabled]);
@@ -37,14 +50,14 @@ const SettingsComponent: React.FC<SettingsProps> = ({
     const status = await notificationService.requestPermission();
     setPermissionStatus(status);
 
-    if (status === 'granted') {
+    if (status === "granted") {
       setShowPermissionBanner(false);
       onSettingsChange({ ...settings, enabled: true });
 
       // Mostrar notificación de prueba
       await notificationService.show({
-        title: '🎉 ¡Notificaciones Activadas!',
-        body: 'Recibirás alertas cuando terminen tus sesiones de estudio.',
+        title: "🎉 ¡Notificaciones Activadas!",
+        body: "Recibirás alertas cuando terminen tus sesiones de estudio.",
       });
     }
   };
@@ -52,7 +65,7 @@ const SettingsComponent: React.FC<SettingsProps> = ({
   const handleToggleNotifications = async () => {
     if (!settings.enabled) {
       // Intentar activar - solicitar permisos si es necesario
-      if (permissionStatus !== 'granted') {
+      if (permissionStatus !== "granted") {
         await handleRequestPermission();
       } else {
         onSettingsChange({ ...settings, enabled: true });
@@ -82,13 +95,16 @@ const SettingsComponent: React.FC<SettingsProps> = ({
   };
 
   const handleToggleVibration = () => {
-    onSettingsChange({ ...settings, vibrationEnabled: !settings.vibrationEnabled });
+    onSettingsChange({
+      ...settings,
+      vibrationEnabled: !settings.vibrationEnabled,
+    });
   };
 
   return (
     <div className="space-y-4">
       {/* Banner de solicitud de permisos */}
-      {showPermissionBanner && permissionStatus === 'default' && (
+      {showPermissionBanner && permissionStatus === "default" && (
         <div className="bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 rounded-lg p-4 mb-4">
           <div className="flex items-start justify-between">
             <div className="flex items-start space-x-3 flex-1">
@@ -98,7 +114,8 @@ const SettingsComponent: React.FC<SettingsProps> = ({
                   ¿Activar notificaciones?
                 </h4>
                 <p className="text-sm text-slate-600 dark:text-slate-300 mb-3">
-                  Recibe alertas cuando terminen tus sesiones de trabajo y descanso, incluso si la app está en segundo plano.
+                  Recibe alertas cuando terminen tus sesiones de trabajo y
+                  descanso, incluso si la app está en segundo plano.
                 </p>
                 <button
                   onClick={handleRequestPermission}
@@ -119,7 +136,7 @@ const SettingsComponent: React.FC<SettingsProps> = ({
       )}
 
       {/* Notificaciones bloqueadas */}
-      {permissionStatus === 'denied' && settings.enabled && (
+      {permissionStatus === "denied" && settings.enabled && (
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-4">
           <div className="flex items-start space-x-3">
             <BellOff className="w-5 h-5 text-red-600 dark:text-red-400 mt-0.5" />
@@ -128,7 +145,8 @@ const SettingsComponent: React.FC<SettingsProps> = ({
                 Notificaciones bloqueadas
               </h4>
               <p className="text-sm text-slate-600 dark:text-slate-300">
-                Has bloqueado las notificaciones. Para activarlas, ve a la configuración de tu navegador.
+                Has bloqueado las notificaciones. Para activarlas, ve a la
+                configuración de tu navegador.
               </p>
             </div>
           </div>
@@ -149,7 +167,7 @@ const SettingsComponent: React.FC<SettingsProps> = ({
                 Notificaciones
               </h3>
               <p className="text-sm text-slate-500 dark:text-slate-400">
-                {settings.enabled ? 'Activadas' : 'Desactivadas'}
+                {settings.enabled ? "Activadas" : "Desactivadas"}
               </p>
             </div>
           </div>
@@ -157,13 +175,13 @@ const SettingsComponent: React.FC<SettingsProps> = ({
             onClick={handleToggleNotifications}
             className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
               settings.enabled
-                ? 'bg-primary-600'
-                : 'bg-slate-300 dark:bg-slate-700'
+                ? "bg-primary-600"
+                : "bg-slate-300 dark:bg-slate-700"
             }`}
           >
             <span
               className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                settings.enabled ? 'translate-x-6' : 'translate-x-1'
+                settings.enabled ? "translate-x-6" : "translate-x-1"
               }`}
             />
           </button>
@@ -176,7 +194,10 @@ const SettingsComponent: React.FC<SettingsProps> = ({
                 type="checkbox"
                 checked={settings.workEndEnabled}
                 onChange={(e) =>
-                  onSettingsChange({ ...settings, workEndEnabled: e.target.checked })
+                  onSettingsChange({
+                    ...settings,
+                    workEndEnabled: e.target.checked,
+                  })
                 }
                 className="rounded text-primary-600 focus:ring-primary-500"
               />
@@ -190,7 +211,10 @@ const SettingsComponent: React.FC<SettingsProps> = ({
                 type="checkbox"
                 checked={settings.breakEndEnabled}
                 onChange={(e) =>
-                  onSettingsChange({ ...settings, breakEndEnabled: e.target.checked })
+                  onSettingsChange({
+                    ...settings,
+                    breakEndEnabled: e.target.checked,
+                  })
                 }
                 className="rounded text-primary-600 focus:ring-primary-500"
               />
@@ -204,7 +228,10 @@ const SettingsComponent: React.FC<SettingsProps> = ({
                 type="checkbox"
                 checked={settings.cycleCompleteEnabled}
                 onChange={(e) =>
-                  onSettingsChange({ ...settings, cycleCompleteEnabled: e.target.checked })
+                  onSettingsChange({
+                    ...settings,
+                    cycleCompleteEnabled: e.target.checked,
+                  })
                 }
                 className="rounded text-primary-600 focus:ring-primary-500"
               />
@@ -230,7 +257,7 @@ const SettingsComponent: React.FC<SettingsProps> = ({
                 Sonido
               </h3>
               <p className="text-sm text-slate-500 dark:text-slate-400">
-                {settings.soundEnabled ? 'Activado' : 'Desactivado'}
+                {settings.soundEnabled ? "Activado" : "Desactivado"}
               </p>
             </div>
           </div>
@@ -238,13 +265,13 @@ const SettingsComponent: React.FC<SettingsProps> = ({
             onClick={handleToggleSound}
             className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
               settings.soundEnabled
-                ? 'bg-primary-600'
-                : 'bg-slate-300 dark:bg-slate-700'
+                ? "bg-primary-600"
+                : "bg-slate-300 dark:bg-slate-700"
             }`}
           >
             <span
               className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                settings.soundEnabled ? 'translate-x-6' : 'translate-x-1'
+                settings.soundEnabled ? "translate-x-6" : "translate-x-1"
               }`}
             />
           </button>
@@ -289,7 +316,7 @@ const SettingsComponent: React.FC<SettingsProps> = ({
       </div>
 
       {/* Configuración de Vibración */}
-      {'vibrate' in navigator && (
+      {"vibrate" in navigator && (
         <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
@@ -299,7 +326,7 @@ const SettingsComponent: React.FC<SettingsProps> = ({
                   Vibración
                 </h3>
                 <p className="text-sm text-slate-500 dark:text-slate-400">
-                  {settings.vibrationEnabled ? 'Activada' : 'Desactivada'}
+                  {settings.vibrationEnabled ? "Activada" : "Desactivada"}
                 </p>
               </div>
             </div>
@@ -307,13 +334,13 @@ const SettingsComponent: React.FC<SettingsProps> = ({
               onClick={handleToggleVibration}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                 settings.vibrationEnabled
-                  ? 'bg-primary-600'
-                  : 'bg-slate-300 dark:bg-slate-700'
+                  ? "bg-primary-600"
+                  : "bg-slate-300 dark:bg-slate-700"
               }`}
             >
               <span
                 className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                  settings.vibrationEnabled ? 'translate-x-6' : 'translate-x-1'
+                  settings.vibrationEnabled ? "translate-x-6" : "translate-x-1"
                 }`}
               />
             </button>
@@ -342,8 +369,8 @@ const SettingsComponent: React.FC<SettingsProps> = ({
               onClick={() => onPaletteChange(palette.id)}
               className={`relative flex flex-col items-center p-3 rounded-lg border-2 transition-all ${
                 currentPalette === palette.id
-                  ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
-                  : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+                  ? "border-primary-500 bg-primary-50 dark:bg-primary-900/20"
+                  : "border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600"
               }`}
               title={palette.name}
             >
@@ -371,11 +398,17 @@ const SettingsComponent: React.FC<SettingsProps> = ({
 
         {/* Preview de colores */}
         <div className="mt-4 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
-          <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">Vista previa:</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">
+            Vista previa:
+          </p>
           <div className="flex space-x-1">
             {[400, 500, 600, 700].map((shade) => {
-              const palette = COLOR_PALETTES.find(p => p.id === currentPalette);
-              const color = palette?.colors[shade as keyof typeof palette.colors] || '#8b5cf6';
+              const palette = COLOR_PALETTES.find(
+                (p) => p.id === currentPalette
+              );
+              const color =
+                palette?.colors[shade as keyof typeof palette.colors] ||
+                "#8b5cf6";
               return (
                 <div
                   key={shade}

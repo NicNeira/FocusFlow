@@ -64,8 +64,12 @@ function AppContent() {
 
   const [sessions, setSessions] = useState<StudySession[]>([]);
   const [currentView, setCurrentView] = useState<ViewState>("timer");
-  const [darkMode, setDarkMode] = useState(() => themeService.getSettings().darkMode);
-  const [colorPalette, setColorPalette] = useState<ColorPaletteId>(() => themeService.getSettings().colorPalette);
+  const [darkMode, setDarkMode] = useState(
+    () => themeService.getSettings().darkMode
+  );
+  const [colorPalette, setColorPalette] = useState<ColorPaletteId>(
+    () => themeService.getSettings().colorPalette
+  );
   const [dataLoading, setDataLoading] = useState(true);
 
   // State for Goals
