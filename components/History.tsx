@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { StudySession, MonthlySummary } from '../types';
 import { Clock, Calendar, BookOpen, Trash2, TrendingUp, Target, Award } from 'lucide-react';
-import { getLast6Months, getSessionsByMonth } from '../services/storageService';
+import { getLast6Months, getSessionsByMonth } from '../services/supabaseService';
 
 interface HistoryProps {
   sessions: StudySession[];

@@ -233,3 +233,44 @@ export const getDefaultTimerState = (): TimerState => ({
     lastResetDate: Date.now(),
   },
 });
+
+// =============================================
+// UTILITY FUNCTIONS FOR HISTORY
+// =============================================
+
+export interface MonthOption {
+  month: number; // 0-11
+  year: number;
+  label: string;
+}
+
+export const getLast6Months = (): MonthOption[] => {
+  const months: MonthOption[] = [];
+  const now = new Date();
+  const monthNames = [
+    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+  ];
+
+  for (let i = 0; i < 6; i++) {
+    const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    months.push({
+      month: date.getMonth(),
+      year: date.getFullYear(),
+      label: `${monthNames[date.getMonth()]} ${date.getFullYear()}`,
+    });
+  }
+
+  return months;
+};
+
+export const getSessionsByMonth = (
+  sessions: StudySession[],
+  month: number,
+  year: number
+): StudySession[] => {
+  return sessions.filter((session) => {
+    const date = new Date(session.endTime);
+    return date.getMonth() === month && date.getFullYear() === year;
+  });
+};
