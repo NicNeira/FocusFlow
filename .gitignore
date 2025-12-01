@@ -27,3 +27,4 @@ dist-ssr
 # Uncomment if you generate PNG icons:
 # public/icon-192x192.png
 # public/icon-512x512.png
+.env
