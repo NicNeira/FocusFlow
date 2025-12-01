@@ -19,6 +19,7 @@ import {
   StudyTechnique,
   NotificationSettings as NotificationSettingsType,
   WeeklyGoalsByCategory,
+  ColorPaletteId,
 } from "./types";
 import {
   getSessions,
@@ -45,11 +46,12 @@ import {
 import { faviconService } from "./services/faviconService";
 import { notificationService } from "./services/notificationService";
 import { audioService } from "./services/audioService";
+import { themeService } from "./services/themeService";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import Timer from "./components/Timer";
 import History from "./components/History";
 import Dashboard from "./components/Dashboard";
-import NotificationSettings from "./components/NotificationSettings";
+import SettingsComponent from "./components/NotificationSettings";
 import Login from "./components/Auth/Login";
 import Register from "./components/Auth/Register";
 
@@ -62,7 +64,8 @@ function AppContent() {
 
   const [sessions, setSessions] = useState<StudySession[]>([]);
   const [currentView, setCurrentView] = useState<ViewState>("timer");
-  const [darkMode, setDarkMode] = useState(true);
+  const [darkMode, setDarkMode] = useState(() => themeService.getSettings().darkMode);
+  const [colorPalette, setColorPalette] = useState<ColorPaletteId>(() => themeService.getSettings().colorPalette);
   const [dataLoading, setDataLoading] = useState(true);
 
   // State for Goals
@@ -160,12 +163,8 @@ function AppContent() {
 
   // Dark mode
   useEffect(() => {
-    if (
-      window.matchMedia &&
-      window.matchMedia("(prefers-color-scheme: dark)").matches
-    ) {
-      setDarkMode(true);
-    }
+    // El tema se carga desde localStorage via themeService en el estado inicial
+    themeService.applyTheme();
   }, []);
 
   // Sync audio settings
@@ -180,6 +179,7 @@ function AppContent() {
     } else {
       document.documentElement.classList.remove("dark");
     }
+    themeService.setDarkMode(darkMode);
   }, [darkMode]);
 
   // Timer tick
@@ -495,6 +495,11 @@ function AppContent() {
 
   const toggleTheme = () => setDarkMode(!darkMode);
 
+  const handleColorPaletteChange = (palette: ColorPaletteId) => {
+    setColorPalette(palette);
+    themeService.setColorPalette(palette);
+  };
+
   const handleSignOut = async () => {
     await signOut();
     // Reset state
@@ -724,9 +729,11 @@ function AppContent() {
             <p className="text-slate-500 dark:text-slate-400 mb-8">
               Configura notificaciones, sonidos y preferencias de la aplicación.
             </p>
-            <NotificationSettings
+            <SettingsComponent
               settings={notificationSettings}
               onSettingsChange={handleNotificationSettingsChange}
+              currentPalette={colorPalette}
+              onPaletteChange={handleColorPaletteChange}
             />
           </div>
         )}

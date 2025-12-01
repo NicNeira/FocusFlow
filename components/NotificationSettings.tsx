@@ -1,17 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, BellOff, Volume2, VolumeX, Vibrate, X, CheckCircle } from 'lucide-react';
-import { NotificationSettings as NotificationSettingsType } from '../types';
+import { Bell, BellOff, Volume2, VolumeX, Vibrate, X, CheckCircle, Palette, Check } from 'lucide-react';
+import { NotificationSettings as NotificationSettingsType, ColorPaletteId } from '../types';
 import { notificationService } from '../services/notificationService';
 import { audioService } from '../services/audioService';
+import { themeService, COLOR_PALETTES } from '../services/themeService';
 
-interface NotificationSettingsProps {
+interface SettingsProps {
   settings: NotificationSettingsType;
   onSettingsChange: (settings: NotificationSettingsType) => void;
+  currentPalette: ColorPaletteId;
+  onPaletteChange: (palette: ColorPaletteId) => void;
 }
 
-const NotificationSettingsComponent: React.FC<NotificationSettingsProps> = ({
+const SettingsComponent: React.FC<SettingsProps> = ({
   settings,
   onSettingsChange,
+  currentPalette,
+  onPaletteChange,
 }) => {
   const [permissionStatus, setPermissionStatus] = useState<string>('default');
   const [showPermissionBanner, setShowPermissionBanner] = useState(false);
@@ -315,8 +320,75 @@ const NotificationSettingsComponent: React.FC<NotificationSettingsProps> = ({
           </div>
         </div>
       )}
+
+      {/* Configuración de Paleta de Colores */}
+      <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-4">
+        <div className="flex items-center space-x-3 mb-4">
+          <Palette className="w-5 h-5 text-primary-600 dark:text-primary-400" />
+          <div>
+            <h3 className="font-semibold text-slate-800 dark:text-white">
+              Paleta de Colores
+            </h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              Personaliza el aspecto de la aplicación
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-5 gap-3">
+          {COLOR_PALETTES.map((palette) => (
+            <button
+              key={palette.id}
+              onClick={() => onPaletteChange(palette.id)}
+              className={`relative flex flex-col items-center p-3 rounded-lg border-2 transition-all ${
+                currentPalette === palette.id
+                  ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
+                  : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+              }`}
+              title={palette.name}
+            >
+              {/* Color Preview */}
+              <div className="relative w-8 h-8 rounded-full overflow-hidden shadow-sm mb-2">
+                <div
+                  className="absolute inset-0"
+                  style={{
+                    background: `linear-gradient(135deg, ${palette.colors[400]} 0%, ${palette.colors[600]} 100%)`,
+                  }}
+                />
+              </div>
+              <span className="text-xs font-medium text-slate-600 dark:text-slate-300 truncate w-full text-center">
+                {palette.name}
+              </span>
+              {/* Checkmark */}
+              {currentPalette === palette.id && (
+                <div className="absolute -top-1 -right-1 w-5 h-5 bg-primary-500 rounded-full flex items-center justify-center">
+                  <Check className="w-3 h-3 text-white" />
+                </div>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* Preview de colores */}
+        <div className="mt-4 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">Vista previa:</p>
+          <div className="flex space-x-1">
+            {[400, 500, 600, 700].map((shade) => {
+              const palette = COLOR_PALETTES.find(p => p.id === currentPalette);
+              const color = palette?.colors[shade as keyof typeof palette.colors] || '#8b5cf6';
+              return (
+                <div
+                  key={shade}
+                  className="flex-1 h-6 rounded transition-colors"
+                  style={{ backgroundColor: color }}
+                />
+              );
+            })}
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
 
-export default NotificationSettingsComponent;
+export default SettingsComponent;

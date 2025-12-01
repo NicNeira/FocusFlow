@@ -81,3 +81,29 @@ export interface MonthlySummary {
   byCategory: Record<string, number>; // categoría → segundos
   daysActive: number;
 }
+
+// Paletas de colores disponibles
+export type ColorPaletteId = 'violet' | 'blue' | 'emerald' | 'rose' | 'amber';
+
+export interface ColorPalette {
+  id: ColorPaletteId;
+  name: string;
+  colors: {
+    50: string;
+    100: string;
+    200: string;
+    300: string;
+    400: string;
+    500: string;
+    600: string;
+    700: string;
+    800: string;
+    900: string;
+  };
+}
+
+// Configuración de tema
+export interface ThemeSettings {
+  darkMode: boolean;
+  colorPalette: ColorPaletteId;
+}
