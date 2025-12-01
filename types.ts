@@ -68,3 +68,16 @@ export interface NotificationSettings {
   soundVolume: number; // 0.0 to 1.0
   vibrationEnabled: boolean;
 }
+
+// Metas semanales por categoría (categoría → horas objetivo)
+export type WeeklyGoalsByCategory = Record<string, number>;
+
+// Resumen mensual
+export interface MonthlySummary {
+  month: number; // 0-11
+  year: number;
+  totalSeconds: number;
+  totalSessions: number;
+  byCategory: Record<string, number>; // categoría → segundos
+  daysActive: number;
+}

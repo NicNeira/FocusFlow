@@ -18,6 +18,7 @@ import {
   Objective,
   StudyTechnique,
   NotificationSettings as NotificationSettingsType,
+  WeeklyGoalsByCategory,
 } from "./types";
 import {
   getSessions,
@@ -31,8 +32,6 @@ import {
   saveTimerState,
   clearTimerState,
   getDefaultTimerState,
-  loadNotificationSettings,
-  saveNotificationSettings,
 } from "./services/supabaseService";
 import {
   getTechniqueConfig,
@@ -70,14 +69,19 @@ function AppContent() {
   const [objectives, setObjectives] = useState<Objective[]>([]);
   const [weeklyTarget, setWeeklyTarget] = useState<number>(10);
   const [categories, setCategories] = useState<string[]>([]);
+  const [categoryGoals, setCategoryGoals] = useState<WeeklyGoalsByCategory>({});
 
   // Notification Settings
   const [notificationSettings, setNotificationSettings] =
-    useState<NotificationSettingsType>(() => loadNotificationSettings());
-
-  // Notification Settings
-  const [notificationSettings, setNotificationSettings] =
-    useState<NotificationSettingsType>(() => loadNotificationSettings());
+    useState<NotificationSettingsType>({
+      enabled: true,
+      workEndEnabled: true,
+      breakEndEnabled: true,
+      cycleCompleteEnabled: true,
+      soundEnabled: true,
+      soundVolume: 0.5,
+      vibrationEnabled: false,
+    });
 
   // Lifted Timer State
   const [timerState, setTimerState] =
@@ -164,9 +168,8 @@ function AppContent() {
     }
   }, []);
 
+  // Sync audio settings
   useEffect(() => {
-    saveNotificationSettings(notificationSettings);
-    // Sincronizar volumen del servicio de audio
     audioService.setVolume(notificationSettings.soundVolume);
     audioService.setEnabled(notificationSettings.soundEnabled);
   }, [notificationSettings]);
@@ -383,6 +386,10 @@ function AppContent() {
     setWeeklyTarget(hours);
   };
 
+  const handleUpdateCategoryGoals = (goals: WeeklyGoalsByCategory) => {
+    setCategoryGoals(goals);
+  };
+
   const handleAddCategory = (category: string) => {
     const value = category.trim();
     if (!value) return;
@@ -398,12 +405,6 @@ function AppContent() {
       ...prev,
       technique: getTechniqueConfig(technique),
     }));
-  };
-
-  const handleNotificationSettingsChange = (
-    settings: NotificationSettingsType
-  ) => {
-    setNotificationSettings(settings);
   };
 
   const handleNotificationSettingsChange = (
@@ -703,28 +704,17 @@ function AppContent() {
             sessions={sessions}
             objectives={objectives}
             weeklyTarget={weeklyTarget}
+            categories={categories}
+            categoryGoals={categoryGoals}
             onAddObjective={handleAddObjective}
             onToggleObjective={handleToggleObjective}
             onDeleteObjective={handleDeleteObjective}
             onUpdateWeeklyTarget={handleUpdateWeeklyTarget}
+            onUpdateCategoryGoals={handleUpdateCategoryGoals}
           />
         )}
         {currentView === "history" && (
           <History sessions={sessions} onDeleteSession={handleDeleteSession} />
-        )}
-        {currentView === "settings" && (
-          <div className="max-w-2xl mx-auto">
-            <h2 className="text-3xl font-bold mb-2 text-slate-800 dark:text-white">
-              Ajustes
-            </h2>
-            <p className="text-slate-500 dark:text-slate-400 mb-8">
-              Configura notificaciones, sonidos y preferencias de la aplicación.
-            </p>
-            <NotificationSettings
-              settings={notificationSettings}
-              onSettingsChange={handleNotificationSettingsChange}
-            />
-          </div>
         )}
         {currentView === "settings" && (
           <div className="max-w-2xl mx-auto">
