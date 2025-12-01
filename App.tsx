@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   LayoutDashboard,
   Timer as TimerIcon,
@@ -7,6 +7,9 @@ import {
   Sun,
   BookOpen,
   Settings,
+  LogOut,
+  User,
+  Loader2,
 } from "lucide-react";
 import {
   StudySession,
@@ -15,23 +18,22 @@ import {
   Objective,
   StudyTechnique,
   NotificationSettings as NotificationSettingsType,
+  WeeklyGoalsByCategory,
+  ColorPaletteId,
 } from "./types";
 import {
-  loadSessions,
-  saveSessions,
-  loadTimerState,
+  getSessions,
+  saveSession,
+  deleteSession as deleteSessionFromDB,
+  getObjectives,
+  saveObjective,
+  updateObjective,
+  deleteObjective as deleteObjectiveFromDB,
+  getTimerState,
   saveTimerState,
-  loadObjectives,
-  saveObjectives,
-  loadWeeklyTarget,
-  saveWeeklyTarget,
-  savePomodoroStats,
-  updatePomodoroCount,
-  loadCategories,
-  saveCategories,
-  loadNotificationSettings,
-  saveNotificationSettings,
-} from "./services/storageService";
+  clearTimerState,
+  getDefaultTimerState,
+} from "./services/supabaseService";
 import {
   getTechniqueConfig,
   shouldTransitionToBreak,
@@ -44,67 +46,133 @@ import {
 import { faviconService } from "./services/faviconService";
 import { notificationService } from "./services/notificationService";
 import { audioService } from "./services/audioService";
+import { themeService } from "./services/themeService";
+import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import Timer from "./components/Timer";
 import History from "./components/History";
 import Dashboard from "./components/Dashboard";
-import NotificationSettings from "./components/NotificationSettings";
+import SettingsComponent from "./components/NotificationSettings";
+import Login from "./components/Auth/Login";
+import Register from "./components/Auth/Register";
 
-function App() {
+// Constante para el intervalo de sincronización (1 hora en ms)
+const SYNC_INTERVAL = 60 * 60 * 1000; // 1 hora
+
+function AppContent() {
+  const { user, loading: authLoading, signOut } = useAuth();
+  const [authView, setAuthView] = useState<"login" | "register">("login");
+
   const [sessions, setSessions] = useState<StudySession[]>([]);
   const [currentView, setCurrentView] = useState<ViewState>("timer");
-  const [darkMode, setDarkMode] = useState(true);
+  const [darkMode, setDarkMode] = useState(
+    () => themeService.getSettings().darkMode
+  );
+  const [colorPalette, setColorPalette] = useState<ColorPaletteId>(
+    () => themeService.getSettings().colorPalette
+  );
+  const [dataLoading, setDataLoading] = useState(true);
 
-  // New State for Goals
+  // State for Goals
   const [objectives, setObjectives] = useState<Objective[]>([]);
   const [weeklyTarget, setWeeklyTarget] = useState<number>(10);
-  const [categories, setCategories] = useState<string[]>(() =>
-    loadCategories()
-  );
+  const [categories, setCategories] = useState<string[]>([]);
+  const [categoryGoals, setCategoryGoals] = useState<WeeklyGoalsByCategory>({});
 
   // Notification Settings
   const [notificationSettings, setNotificationSettings] =
-    useState<NotificationSettingsType>(() => loadNotificationSettings());
+    useState<NotificationSettingsType>({
+      enabled: true,
+      workEndEnabled: true,
+      breakEndEnabled: true,
+      cycleCompleteEnabled: true,
+      soundEnabled: true,
+      soundVolume: 0.5,
+      vibrationEnabled: false,
+    });
 
   // Lifted Timer State
-  const [timerState, setTimerState] = useState<TimerState>(() =>
-    loadTimerState()
+  const [timerState, setTimerState] =
+    useState<TimerState>(getDefaultTimerState);
+  const [now, setNow] = useState(Date.now());
+
+  // Track if data has been loaded for this session
+  const [dataLoadedForUser, setDataLoadedForUser] = useState<string | null>(
+    null
   );
-  const [now, setNow] = useState(Date.now()); // State to force re-render for timer tick
 
+  // Load data when user authenticates (only once per user session)
   useEffect(() => {
-    // Load initial data
-    setSessions(loadSessions());
-    setObjectives(loadObjectives());
-    setWeeklyTarget(loadWeeklyTarget());
-
-    if (
-      window.matchMedia &&
-      window.matchMedia("(prefers-color-scheme: dark)").matches
-    ) {
-      setDarkMode(true);
+    if (!user) {
+      setDataLoading(false);
+      setDataLoadedForUser(null);
+      return;
     }
+
+    // Skip if data already loaded for this user
+    if (dataLoadedForUser === user.id) {
+      setDataLoading(false);
+      return;
+    }
+
+    const loadUserData = async () => {
+      setDataLoading(true);
+      try {
+        const [loadedSessions, loadedObjectives, loadedTimerState] =
+          await Promise.all([
+            getSessions(user.id),
+            getObjectives(user.id),
+            getTimerState(user.id),
+          ]);
+
+        setSessions(loadedSessions);
+        setObjectives(loadedObjectives);
+
+        // Extract categories from sessions
+        const uniqueCategories = [
+          ...new Set(loadedSessions.map((s) => s.subject)),
+        ];
+        setCategories(uniqueCategories);
+
+        // Restore timer state if exists
+        if (loadedTimerState) {
+          // Check if the timer was running when saved
+          if (loadedTimerState.isRunning && loadedTimerState.startTime) {
+            // Calculate accumulated time since last save
+            const timeSinceStart = Math.floor(
+              (Date.now() - loadedTimerState.startTime) / 1000
+            );
+            setTimerState({
+              ...loadedTimerState,
+              accumulatedTime:
+                loadedTimerState.accumulatedTime + timeSinceStart,
+              isRunning: false,
+              startTime: null,
+            });
+          } else {
+            setTimerState(loadedTimerState);
+          }
+        }
+
+        // Mark data as loaded for this user
+        setDataLoadedForUser(user.id);
+      } catch (error) {
+        console.error("Error loading user data:", error);
+      } finally {
+        setDataLoading(false);
+      }
+    };
+
+    loadUserData();
+  }, [user, dataLoadedForUser]);
+
+  // Dark mode
+  useEffect(() => {
+    // El tema se carga desde localStorage via themeService en el estado inicial
+    themeService.applyTheme();
   }, []);
 
-  // Persistence Effects
+  // Sync audio settings
   useEffect(() => {
-    saveSessions(sessions);
-  }, [sessions]);
-
-  useEffect(() => {
-    saveObjectives(objectives);
-  }, [objectives]);
-
-  useEffect(() => {
-    saveWeeklyTarget(weeklyTarget);
-  }, [weeklyTarget]);
-
-  useEffect(() => {
-    saveCategories(categories);
-  }, [categories]);
-
-  useEffect(() => {
-    saveNotificationSettings(notificationSettings);
-    // Sincronizar volumen del servicio de audio
     audioService.setVolume(notificationSettings.soundVolume);
     audioService.setEnabled(notificationSettings.soundEnabled);
   }, [notificationSettings]);
@@ -115,13 +183,10 @@ function App() {
     } else {
       document.documentElement.classList.remove("dark");
     }
+    themeService.setDarkMode(darkMode);
   }, [darkMode]);
 
-  // Timer Logic: Persistence and Tick
-  useEffect(() => {
-    saveTimerState(timerState);
-  }, [timerState]);
-
+  // Timer tick
   useEffect(() => {
     let interval: number;
     if (timerState.isRunning) {
@@ -132,10 +197,21 @@ function App() {
     return () => clearInterval(interval);
   }, [timerState.isRunning]);
 
-  // Calculate elapsed seconds based on accumulated time + current segment
+  // Sync timer state every hour
+  useEffect(() => {
+    if (!user || !timerState.isRunning) return;
+
+    const syncInterval = window.setInterval(async () => {
+      console.log("⏰ Syncing timer state to Supabase...");
+      await saveTimerState(user.id, timerState);
+    }, SYNC_INTERVAL);
+
+    return () => clearInterval(syncInterval);
+  }, [user, timerState.isRunning, timerState]);
+
+  // Calculate elapsed seconds
   const elapsedSeconds = useMemo(() => {
     if (timerState.isRunning && timerState.startTime) {
-      // Calculate seconds passed since start time + previously accumulated time
       return (
         timerState.accumulatedTime +
         Math.floor((now - timerState.startTime) / 1000)
@@ -144,13 +220,12 @@ function App() {
     return timerState.accumulatedTime;
   }, [timerState, now]);
 
-  // Verificar transiciones automáticas entre trabajo y descanso
+  // Auto-transition between work and break
   useEffect(() => {
     if (!timerState.isRunning || timerState.technique.type === "libre") return;
 
     const technique = timerState.technique;
 
-    // Transición a descanso
     if (shouldTransitionToBreak(elapsedSeconds, technique)) {
       setTimerState((prev) => ({
         ...prev,
@@ -160,30 +235,25 @@ function App() {
         technique: startBreakTime(prev.technique),
       }));
 
-      // Notificación y sonido de fin de trabajo
-      if (notificationSettings.enabled && notificationSettings.workEndEnabled) {
-        notificationService.notifyWorkPeriodEnd(
-          technique.type === 'pomodoro' ? 'Pomodoro' : '52-17',
-          technique.breakDuration
-        );
-      }
-
-      if (notificationSettings.soundEnabled) {
-        audioService.playWorkEnd();
-      }
-
-      if (notificationSettings.vibrationEnabled) {
-        audioService.vibrate([200, 100, 200]);
+      if ("Notification" in window && Notification.permission === "granted") {
+        new Notification("FocusFlow - ¡Tiempo de Descanso!", {
+          body: `¡Excelente trabajo! Tómate ${
+            technique.breakDuration / 60
+          } minutos de descanso.`,
+          icon: "/favicon.png",
+        });
       }
 
       return;
     }
 
-    // Transición a trabajo (completar ciclo)
     if (shouldTransitionToWork(elapsedSeconds, technique)) {
-      // Incrementar contador de ciclos completados
-      const updatedStats = updatePomodoroCount(timerState.pomodoroStats);
       const updatedTechnique = incrementCycle(technique);
+      const updatedStats = {
+        ...timerState.pomodoroStats,
+        daily: timerState.pomodoroStats.daily + 1,
+        weekly: timerState.pomodoroStats.weekly + 1,
+      };
 
       setTimerState((prev) => ({
         ...prev,
@@ -194,28 +264,11 @@ function App() {
         pomodoroStats: updatedStats,
       }));
 
-      savePomodoroStats(updatedStats);
-
-      // Notificación de fin de descanso
-      if (notificationSettings.enabled && notificationSettings.breakEndEnabled) {
-        notificationService.notifyBreakPeriodEnd();
-      }
-
-      // Notificación de ciclo completado
-      if (notificationSettings.enabled && notificationSettings.cycleCompleteEnabled) {
-        notificationService.notifyCycleComplete(
-          updatedTechnique.cyclesCompleted,
-          updatedStats.daily,
-          updatedStats.weekly
-        );
-      }
-
-      if (notificationSettings.soundEnabled) {
-        audioService.playCycleComplete();
-      }
-
-      if (notificationSettings.vibrationEnabled) {
-        audioService.vibrate([200, 100, 200, 100, 200]);
+      if ("Notification" in window && Notification.permission === "granted") {
+        new Notification("FocusFlow - ¡Ciclo Completado!", {
+          body: `¡Felicidades! Has completado el ciclo ${updatedTechnique.cyclesCompleted}. ¡Sigue así!`,
+          icon: "/favicon.png",
+        });
       }
     }
   }, [
@@ -226,16 +279,14 @@ function App() {
     notificationSettings,
   ]);
 
-  // Update favicon and page title based on timer state
+  // Update favicon and title
   useEffect(() => {
     const isRunning = timerState.isRunning;
     const isPaused = !timerState.isRunning && timerState.accumulatedTime > 0;
     const hasTime = elapsedSeconds > 0;
 
-    // Update favicon
     faviconService.updateFaviconState(isRunning, isPaused, hasTime);
 
-    // Update page title
     let title = "FocusFlow";
     if (isRunning) {
       const hours = Math.floor(elapsedSeconds / 3600);
@@ -262,48 +313,85 @@ function App() {
     elapsedSeconds,
   ]);
 
-  // Cleanup favicon service on unmount
   useEffect(() => {
     return () => {
       faviconService.destroy();
     };
   }, []);
 
-  const addSession = (session: StudySession) => {
-    setSessions((prev) => [session, ...prev]);
-  };
+  // Session handlers
+  const addSession = useCallback(
+    async (sessionData: Omit<StudySession, "id">) => {
+      if (!user) return;
 
-  const deleteSession = (id: string) => {
-    if (confirm("¿Estás seguro de que deseas eliminar este registro?")) {
+      const savedSession = await saveSession(user.id, sessionData);
+      if (savedSession) {
+        setSessions((prev) => [savedSession, ...prev]);
+      }
+    },
+    [user]
+  );
+
+  const handleDeleteSession = useCallback(async (id: string) => {
+    if (!confirm("¿Estás seguro de que deseas eliminar este registro?")) return;
+
+    const success = await deleteSessionFromDB(id);
+    if (success) {
       setSessions((prev) => prev.filter((s) => s.id !== id));
     }
-  };
+  }, []);
 
-  // Objectives Handlers
-  const handleAddObjective = (text: string) => {
-    const newObjective: Objective = {
-      id: crypto.randomUUID(),
-      text,
-      isCompleted: false,
-      createdAt: Date.now(),
-    };
-    setObjectives((prev) => [newObjective, ...prev]);
-  };
+  // Objectives handlers
+  const handleAddObjective = useCallback(
+    async (text: string) => {
+      if (!user) return;
 
-  const handleToggleObjective = (id: string) => {
-    setObjectives((prev) =>
-      prev.map((obj) =>
-        obj.id === id ? { ...obj, isCompleted: !obj.isCompleted } : obj
-      )
-    );
-  };
+      const newObjective = {
+        text,
+        isCompleted: false,
+        createdAt: Date.now(),
+      };
 
-  const handleDeleteObjective = (id: string) => {
-    setObjectives((prev) => prev.filter((obj) => obj.id !== id));
-  };
+      const saved = await saveObjective(user.id, newObjective);
+      if (saved) {
+        setObjectives((prev) => [saved, ...prev]);
+      }
+    },
+    [user]
+  );
+
+  const handleToggleObjective = useCallback(
+    async (id: string) => {
+      const objective = objectives.find((o) => o.id === id);
+      if (!objective) return;
+
+      const success = await updateObjective(id, {
+        isCompleted: !objective.isCompleted,
+      });
+      if (success) {
+        setObjectives((prev) =>
+          prev.map((obj) =>
+            obj.id === id ? { ...obj, isCompleted: !obj.isCompleted } : obj
+          )
+        );
+      }
+    },
+    [objectives]
+  );
+
+  const handleDeleteObjective = useCallback(async (id: string) => {
+    const success = await deleteObjectiveFromDB(id);
+    if (success) {
+      setObjectives((prev) => prev.filter((obj) => obj.id !== id));
+    }
+  }, []);
 
   const handleUpdateWeeklyTarget = (hours: number) => {
     setWeeklyTarget(hours);
+  };
+
+  const handleUpdateCategoryGoals = (goals: WeeklyGoalsByCategory) => {
+    setCategoryGoals(goals);
   };
 
   const handleAddCategory = (category: string) => {
@@ -329,33 +417,18 @@ function App() {
     setNotificationSettings(settings);
   };
 
-  // Timer Handlers
+  // Timer handlers
   const handleStartTimer = () => {
-    console.log("🟢 [App] handleStartTimer ejecutado");
-    console.log("🟢 [App] Estado previo:", {
-      isRunning: timerState.isRunning,
-      accumulatedTime: timerState.accumulatedTime,
-      technique: timerState.technique.type,
-    });
-
-    setTimerState((prev) => {
-      console.log("🟢 [App] setTimerState ejecutándose...");
-      const newState = {
-        ...prev,
-        isRunning: true,
-        startTime: Date.now(),
-      };
-      console.log("🟢 [App] Nuevo estado:", newState);
-      return newState;
-    });
-
-    console.log("🟢 [App] handleStartTimer completado");
+    setTimerState((prev) => ({
+      ...prev,
+      isRunning: true,
+      startTime: Date.now(),
+    }));
   };
 
   const handlePauseTimer = () => {
     setTimerState((prev) => {
       if (!prev.startTime) return prev;
-      // Calculate time passed in this segment
       const currentSegment = Math.floor((Date.now() - prev.startTime) / 1000);
       return {
         ...prev,
@@ -367,7 +440,6 @@ function App() {
   };
 
   const handleResetTimer = () => {
-    // Only ask for confirmation if there is significant time recorded
     if (
       elapsedSeconds > 10 &&
       !confirm(
@@ -387,14 +459,15 @@ function App() {
     }));
   };
 
-  const handleSaveSession = () => {
+  const handleSaveSession = async () => {
+    if (!user) return;
+
     if (elapsedSeconds < 10) {
       alert("La sesión es muy corta para guardarse (< 10 segundos).");
       return;
     }
 
-    const newSession: StudySession = {
-      id: crypto.randomUUID(),
+    const newSession = {
       subject: timerState.subject || "General",
       startTime: Date.now() - elapsedSeconds * 1000,
       endTime: Date.now(),
@@ -402,9 +475,12 @@ function App() {
       notes: timerState.notes,
     };
 
-    addSession(newSession);
+    await addSession(newSession);
 
-    // Reset timer after save
+    // Clear timer state from Supabase
+    await clearTimerState(user.id);
+
+    // Reset timer
     setTimerState((prev) => ({
       isRunning: false,
       startTime: null,
@@ -415,11 +491,61 @@ function App() {
       pomodoroStats: prev.pomodoroStats,
     }));
 
-    // Optionally go to history or show a success message?
-    // For now stay on timer to allow next session immediately.
+    // Add category if new
+    if (newSession.subject && !categories.includes(newSession.subject)) {
+      setCategories((prev) => [newSession.subject, ...prev].slice(0, 20));
+    }
   };
 
   const toggleTheme = () => setDarkMode(!darkMode);
+
+  const handleColorPaletteChange = (palette: ColorPaletteId) => {
+    setColorPalette(palette);
+    themeService.setColorPalette(palette);
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+    // Reset state
+    setSessions([]);
+    setObjectives([]);
+    setCategories([]);
+    setTimerState(getDefaultTimerState());
+  };
+
+  // Loading state
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-slate-950">
+        <div className="flex flex-col items-center space-y-4">
+          <Loader2 className="w-12 h-12 text-primary-600 animate-spin" />
+          <p className="text-slate-600 dark:text-slate-400">Cargando...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Auth screens
+  if (!user) {
+    if (authView === "login") {
+      return <Login onSwitchToRegister={() => setAuthView("register")} />;
+    }
+    return <Register onSwitchToLogin={() => setAuthView("login")} />;
+  }
+
+  // Data loading
+  if (dataLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-slate-950">
+        <div className="flex flex-col items-center space-y-4">
+          <Loader2 className="w-12 h-12 text-primary-600 animate-spin" />
+          <p className="text-slate-600 dark:text-slate-400">
+            Cargando tus datos...
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const HeaderNavButton = ({
     view,
@@ -427,7 +553,7 @@ function App() {
     label,
   }: {
     view: ViewState;
-    icon: any;
+    icon: React.ElementType;
     label: string;
   }) => (
     <button
@@ -472,7 +598,6 @@ function App() {
               label="Dashboard"
             />
 
-            {/* Timer Button with active indicator */}
             <button
               onClick={() => setCurrentView("timer")}
               className={`relative flex items-center space-x-2 px-4 py-2 rounded-lg transition-all ${
@@ -494,16 +619,12 @@ function App() {
               label="Historial"
             />
 
-            <HeaderNavButton
-              view="settings"
-              icon={Settings}
-              label="Ajustes"
-            />
+            <HeaderNavButton view="settings" icon={Settings} label="Ajustes" />
           </nav>
 
-          {/* Right side - Mini Timer and Theme Toggle */}
+          {/* Right side */}
           <div className="ml-auto flex items-center space-x-3">
-            {/* Mini Timer Display in Header if not on Timer View */}
+            {/* Mini Timer Display */}
             {currentView !== "timer" && elapsedSeconds > 0 && (
               <div
                 onClick={() => setCurrentView("timer")}
@@ -527,6 +648,23 @@ function App() {
               </div>
             )}
 
+            {/* User Menu */}
+            <div className="flex items-center space-x-2">
+              <div className="hidden sm:flex items-center space-x-2 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-lg">
+                <User className="w-4 h-4 text-slate-500" />
+                <span className="text-sm text-slate-600 dark:text-slate-300 max-w-32 truncate">
+                  {user.email}
+                </span>
+              </div>
+              <button
+                onClick={handleSignOut}
+                className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-600 dark:text-slate-400"
+                title="Cerrar sesión"
+              >
+                <LogOut className="w-5 h-5" />
+              </button>
+            </div>
+
             <button
               onClick={toggleTheme}
               className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-600 dark:text-slate-400"
@@ -541,8 +679,8 @@ function App() {
         </div>
       </header>
 
-      {/* Main Content Area */}
-      <main className="flex-1 container mx-auto px-4 py-6 pb-24 md:pb-6 max-w-5xl">
+      {/* Main Content */}
+      <main className="flex-1 container mx-auto px-4 py-6 max-w-5xl">
         {currentView === "timer" && (
           <div className="flex flex-col items-center animate-fade-in">
             <h2 className="text-3xl font-bold mb-2 text-slate-800 dark:text-white">
@@ -575,14 +713,17 @@ function App() {
             sessions={sessions}
             objectives={objectives}
             weeklyTarget={weeklyTarget}
+            categories={categories}
+            categoryGoals={categoryGoals}
             onAddObjective={handleAddObjective}
             onToggleObjective={handleToggleObjective}
             onDeleteObjective={handleDeleteObjective}
             onUpdateWeeklyTarget={handleUpdateWeeklyTarget}
+            onUpdateCategoryGoals={handleUpdateCategoryGoals}
           />
         )}
         {currentView === "history" && (
-          <History sessions={sessions} onDeleteSession={deleteSession} />
+          <History sessions={sessions} onDeleteSession={handleDeleteSession} />
         )}
         {currentView === "settings" && (
           <div className="max-w-2xl mx-auto">
@@ -592,9 +733,11 @@ function App() {
             <p className="text-slate-500 dark:text-slate-400 mb-8">
               Configura notificaciones, sonidos y preferencias de la aplicación.
             </p>
-            <NotificationSettings
+            <SettingsComponent
               settings={notificationSettings}
               onSettingsChange={handleNotificationSettingsChange}
+              currentPalette={colorPalette}
+              onPaletteChange={handleColorPaletteChange}
             />
           </div>
         )}
@@ -656,6 +799,14 @@ function App() {
         </div>
       </nav>
     </div>
+  );
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }
 

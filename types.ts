@@ -68,3 +68,42 @@ export interface NotificationSettings {
   soundVolume: number; // 0.0 to 1.0
   vibrationEnabled: boolean;
 }
+
+// Metas semanales por categoría (categoría → horas objetivo)
+export type WeeklyGoalsByCategory = Record<string, number>;
+
+// Resumen mensual
+export interface MonthlySummary {
+  month: number; // 0-11
+  year: number;
+  totalSeconds: number;
+  totalSessions: number;
+  byCategory: Record<string, number>; // categoría → segundos
+  daysActive: number;
+}
+
+// Paletas de colores disponibles
+export type ColorPaletteId = 'violet' | 'blue' | 'emerald' | 'rose' | 'amber';
+
+export interface ColorPalette {
+  id: ColorPaletteId;
+  name: string;
+  colors: {
+    50: string;
+    100: string;
+    200: string;
+    300: string;
+    400: string;
+    500: string;
+    600: string;
+    700: string;
+    800: string;
+    900: string;
+  };
+}
+
+// Configuración de tema
+export interface ThemeSettings {
+  darkMode: boolean;
+  colorPalette: ColorPaletteId;
+}
