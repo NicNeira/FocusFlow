@@ -680,7 +680,7 @@ function AppContent() {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 container mx-auto px-4 py-6 max-w-5xl">
+      <main className="flex-1 container mx-auto px-4 py-6 max-w-5xl pb-24 md:pb-6">
         {currentView === "timer" && (
           <div className="flex flex-col items-center animate-fade-in">
             <h2 className="text-3xl font-bold mb-2 text-slate-800 dark:text-white">
