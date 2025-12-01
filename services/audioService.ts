@@ -252,14 +252,60 @@ class AudioService {
   }
 
   /**
-   * Vibra el dispositivo si es compatible
+   * Verifica si la API de vibración está disponible
+   * Nota: Safari/iOS NO soporta vibración
    */
-  public vibrate(pattern: number | number[]): void {
-    if ('vibrate' in navigator) {
+  public isVibrationSupported(): boolean {
+    // Verificar si la API existe
+    if (!('vibrate' in navigator)) {
+      return false;
+    }
+
+    // Detectar iOS - no soporta vibración aunque la API pueda existir
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+    if (isIOS) {
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * Vibra el dispositivo si es compatible
+   * Retorna true si la vibración se intentó ejecutar, false si no está soportada
+   * Nota: En algunos navegadores móviles, la vibración requiere interacción
+   * reciente del usuario para funcionar
+   */
+  public vibrate(pattern: number | number[]): boolean {
+    if (!this.isVibrationSupported()) {
+      console.log('Vibración no soportada en este dispositivo');
+      return false;
+    }
+
+    try {
+      // navigator.vibrate retorna un boolean indicando si la vibración fue aceptada
+      const result = navigator.vibrate(pattern);
+      if (!result) {
+        console.log('Vibración rechazada - puede requerir interacción del usuario');
+      }
+      return result;
+    } catch (error) {
+      console.log('Error al intentar vibrar:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Detiene cualquier vibración en curso
+   */
+  public stopVibration(): void {
+    if (this.isVibrationSupported()) {
       try {
-        navigator.vibrate(pattern);
+        navigator.vibrate(0);
       } catch (error) {
-        console.log('Vibración no soportada');
+        // Ignorar errores al detener
       }
     }
   }

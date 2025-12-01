@@ -146,7 +146,7 @@ FocusFlow includes a comprehensive notification and audio alert system for techn
 **User Preferences:**
 - Individual toggles for each notification type
 - Sound enable/disable with volume slider
-- Vibration support for mobile devices
+- Vibration support for mobile devices (Android only - iOS/Safari no soporta vibración)
 - Permission banner with graceful degradation if denied
 - Settings accessible via Settings view (4th nav item)
 
@@ -154,6 +154,8 @@ FocusFlow includes a comprehensive notification and audio alert system for techn
 - Notifications triggered in App.tsx transition effects (lines 147-227)
 - Uses user preferences from `notificationSettings` state
 - Vibration patterns: `[200, 100, 200]` for work end, `[200, 100, 200, 100, 200]` for cycle complete
+- Vibration uses `audioService.vibrate()` which returns boolean indicating success
+- `audioService.isVibrationSupported()` detecta si el dispositivo soporta vibración
 
 **Permission Flow:**
 1. User navigates to Settings

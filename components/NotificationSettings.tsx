@@ -284,7 +284,7 @@ const NotificationSettingsComponent: React.FC<NotificationSettingsProps> = ({
       </div>
 
       {/* Configuración de Vibración */}
-      {'vibrate' in navigator && (
+      {audioService.isVibrationSupported() ? (
         <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
@@ -312,6 +312,36 @@ const NotificationSettingsComponent: React.FC<NotificationSettingsProps> = ({
                 }`}
               />
             </button>
+          </div>
+          {settings.vibrationEnabled && (
+            <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-700">
+              <button
+                onClick={() => audioService.vibrate([200, 100, 200])}
+                className="w-full py-2 px-4 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-sm font-medium transition-colors flex items-center justify-center space-x-2"
+              >
+                <Vibrate className="w-4 h-4" />
+                <span>Probar Vibración</span>
+              </button>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="bg-slate-100 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
+          <div className="flex items-center space-x-3">
+            <Vibrate className="w-5 h-5 text-slate-400 dark:text-slate-500" />
+            <div>
+              <h3 className="font-semibold text-slate-500 dark:text-slate-400">
+                Vibración
+              </h3>
+              <p className="text-sm text-slate-400 dark:text-slate-500">
+                No disponible en este dispositivo
+                {/iPad|iPhone|iPod/.test(navigator.userAgent) && (
+                  <span className="block mt-1">
+                    (iOS/Safari no soporta vibración)
+                  </span>
+                )}
+              </p>
+            </div>
           </div>
         </div>
       )}
