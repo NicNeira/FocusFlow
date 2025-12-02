@@ -513,13 +513,17 @@ function AppContent() {
     setTimerState(getDefaultTimerState());
   };
 
-  // Loading state
-  if (authLoading) {
+  // Combined loading state - show single loader during auth + data loading
+  const isFullyLoading = authLoading || (user && dataLoading);
+
+  if (isFullyLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-slate-950">
-        <div className="flex flex-col items-center space-y-4">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-slate-950 transition-opacity duration-300">
+        <div className="flex flex-col items-center space-y-4 animate-fade-in">
           <Loader2 className="w-12 h-12 text-primary-600 animate-spin" />
-          <p className="text-slate-600 dark:text-slate-400">Cargando...</p>
+          <p className="text-slate-600 dark:text-slate-400">
+            {authLoading ? "Verificando sesión..." : "Cargando tus datos..."}
+          </p>
         </div>
       </div>
     );
@@ -531,20 +535,6 @@ function AppContent() {
       return <Login onSwitchToRegister={() => setAuthView("register")} />;
     }
     return <Register onSwitchToLogin={() => setAuthView("login")} />;
-  }
-
-  // Data loading
-  if (dataLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-slate-950">
-        <div className="flex flex-col items-center space-y-4">
-          <Loader2 className="w-12 h-12 text-primary-600 animate-spin" />
-          <p className="text-slate-600 dark:text-slate-400">
-            Cargando tus datos...
-          </p>
-        </div>
-      </div>
-    );
   }
 
   const HeaderNavButton = ({
