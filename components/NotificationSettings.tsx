@@ -105,15 +105,15 @@ const SettingsComponent: React.FC<SettingsProps> = ({
     <div className="space-y-4">
       {/* Banner de solicitud de permisos */}
       {showPermissionBanner && permissionStatus === "default" && (
-        <div className="bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 rounded-lg p-4 mb-4">
+        <div className="bg-slate-800 dark:bg-slate-800 border border-slate-700 dark:border-slate-700 rounded-lg p-4 mb-4">
           <div className="flex items-start justify-between">
             <div className="flex items-start space-x-3 flex-1">
-              <Bell className="w-5 h-5 text-primary-600 dark:text-primary-400 mt-0.5" />
+              <Bell className="w-5 h-5 text-primary-400 mt-0.5" />
               <div className="flex-1">
-                <h4 className="font-semibold text-slate-800 dark:text-white mb-1">
+                <h4 className="font-semibold text-white mb-1">
                   ¿Activar notificaciones?
                 </h4>
-                <p className="text-sm text-slate-600 dark:text-slate-300 mb-3">
+                <p className="text-sm text-slate-300 mb-3">
                   Recibe alertas cuando terminen tus sesiones de trabajo y
                   descanso, incluso si la app está en segundo plano.
                 </p>
@@ -127,7 +127,7 @@ const SettingsComponent: React.FC<SettingsProps> = ({
             </div>
             <button
               onClick={() => setShowPermissionBanner(false)}
-              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              className="text-slate-400 hover:text-slate-200"
             >
               <X className="w-5 h-5" />
             </button>

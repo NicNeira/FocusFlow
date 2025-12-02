@@ -22,6 +22,11 @@
       .safe-area-bottom {
         padding-bottom: env(safe-area-inset-bottom, 0px);
       }
+      /* Prevent layout shift when scrollbar appears/disappears */
+      html {
+        scrollbar-gutter: stable both-edges;
+        overflow-y: scroll;
+      }
     </style>
     <script>
       tailwind.config = {

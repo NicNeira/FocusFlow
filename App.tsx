@@ -582,12 +582,6 @@ function AppContent() {
 
           {/* Navigation - Centered (hidden on mobile, shown in bottom nav) */}
           <nav className="hidden md:flex absolute left-1/2 transform -translate-x-1/2 items-center space-x-2">
-            <HeaderNavButton
-              view="dashboard"
-              icon={LayoutDashboard}
-              label="Dashboard"
-            />
-
             <button
               onClick={() => setCurrentView("timer")}
               className={`relative flex items-center space-x-2 px-4 py-2 rounded-lg transition-all ${
@@ -602,6 +596,12 @@ function AppContent() {
               <TimerIcon className="w-5 h-5" />
               <span className="text-sm font-medium hidden sm:block">Timer</span>
             </button>
+
+            <HeaderNavButton
+              view="dashboard"
+              icon={LayoutDashboard}
+              label="Dashboard"
+            />
 
             <HeaderNavButton
               view="history"
@@ -713,10 +713,15 @@ function AppContent() {
           />
         )}
         {currentView === "history" && (
-          <History sessions={sessions} onDeleteSession={handleDeleteSession} />
+          <div className="animate-fade-in">
+            <History
+              sessions={sessions}
+              onDeleteSession={handleDeleteSession}
+            />
+          </div>
         )}
         {currentView === "settings" && (
-          <div className="max-w-2xl mx-auto">
+          <div className="max-w-2xl mx-auto animate-fade-in">
             <h2 className="text-3xl font-bold mb-2 text-slate-800 dark:text-white">
               Ajustes
             </h2>
@@ -737,18 +742,6 @@ function AppContent() {
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 dark:bg-slate-950/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 px-4 py-2 safe-area-bottom">
         <div className="flex items-center justify-around">
           <button
-            onClick={() => setCurrentView("dashboard")}
-            className={`flex flex-col items-center py-2 px-3 rounded-lg transition-all ${
-              currentView === "dashboard"
-                ? "text-primary-600 dark:text-primary-400"
-                : "text-slate-500 dark:text-slate-400"
-            }`}
-          >
-            <LayoutDashboard className="w-6 h-6" />
-            <span className="text-xs mt-1 font-medium">Dashboard</span>
-          </button>
-
-          <button
             onClick={() => setCurrentView("timer")}
             className={`relative flex flex-col items-center py-2 px-3 rounded-lg transition-all ${
               currentView === "timer"
@@ -761,6 +754,18 @@ function AppContent() {
             )}
             <TimerIcon className="w-6 h-6" />
             <span className="text-xs mt-1 font-medium">Timer</span>
+          </button>
+
+          <button
+            onClick={() => setCurrentView("dashboard")}
+            className={`flex flex-col items-center py-2 px-3 rounded-lg transition-all ${
+              currentView === "dashboard"
+                ? "text-primary-600 dark:text-primary-400"
+                : "text-slate-500 dark:text-slate-400"
+            }`}
+          >
+            <LayoutDashboard className="w-6 h-6" />
+            <span className="text-xs mt-1 font-medium">Dashboard</span>
           </button>
 
           <button
