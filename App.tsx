@@ -20,6 +20,7 @@ import {
   NotificationSettings as NotificationSettingsType,
   WeeklyGoalsByCategory,
   ColorPaletteId,
+  InterruptedSessionInfo,
 } from "./types";
 import {
   getSessions,
@@ -47,6 +48,14 @@ import { faviconService } from "./services/faviconService";
 import { notificationService } from "./services/notificationService";
 import { audioService } from "./services/audioService";
 import { themeService } from "./services/themeService";
+import { timerPersistenceService } from "./services/timerPersistenceService";
+import {
+  pushNotificationService,
+  isPushSupported,
+  scheduleWorkCompleteNotification,
+  scheduleBreakCompleteNotification,
+  cancelPendingNotifications,
+} from "./services/pushNotificationService";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import Timer from "./components/Timer";
 import History from "./components/History";
@@ -95,6 +104,10 @@ function AppContent() {
     useState<TimerState>(getDefaultTimerState);
   const [now, setNow] = useState(Date.now());
 
+  // Interrupted session state for restoration banner
+  const [interruptedSession, setInterruptedSession] =
+    useState<InterruptedSessionInfo | null>(null);
+
   // Track if data has been loaded for this session
   const [dataLoadedForUser, setDataLoadedForUser] = useState<string | null>(
     null
@@ -117,12 +130,18 @@ function AppContent() {
     const loadUserData = async () => {
       setDataLoading(true);
       try {
-        const [loadedSessions, loadedObjectives, loadedTimerState] =
-          await Promise.all([
-            getSessions(user.id),
-            getObjectives(user.id),
-            getTimerState(user.id),
-          ]);
+        // Initialize persistence service
+        timerPersistenceService.initialize(user.id, () => timerState);
+
+        // Initialize push notification service (if supported)
+        if (isPushSupported()) {
+          await pushNotificationService.initialize(user.id);
+        }
+
+        const [loadedSessions, loadedObjectives] = await Promise.all([
+          getSessions(user.id),
+          getObjectives(user.id),
+        ]);
 
         setSessions(loadedSessions);
         setObjectives(loadedObjectives);
@@ -133,23 +152,41 @@ function AppContent() {
         ];
         setCategories(uniqueCategories);
 
-        // Restore timer state if exists
-        if (loadedTimerState) {
-          // Check if the timer was running when saved
-          if (loadedTimerState.isRunning && loadedTimerState.startTime) {
-            // Calculate accumulated time since last save
-            const timeSinceStart = Math.floor(
-              (Date.now() - loadedTimerState.startTime) / 1000
-            );
+        // Use persistence service to reconcile timer state
+        const restored = await timerPersistenceService.loadAndReconcile();
+
+        if (restored.source !== "none") {
+          // Check if the timer was running when the app was closed
+          if (restored.wasRunning && restored.state.startTime) {
+            // Calculate total elapsed time
+            const totalElapsed =
+              restored.state.accumulatedTime +
+              Math.floor((Date.now() - restored.state.startTime) / 1000);
+
+            // Pause the timer and show restoration banner (Option B)
             setTimerState({
-              ...loadedTimerState,
-              accumulatedTime:
-                loadedTimerState.accumulatedTime + timeSinceStart,
+              ...restored.state,
+              accumulatedTime: totalElapsed,
               isRunning: false,
               startTime: null,
             });
+
+            // Cancel any pending push notifications since timer is now paused
+            cancelPendingNotifications().catch(console.error);
+
+            // Show interrupted session banner
+            const minutesWhileAway = Math.floor(restored.elapsedWhileAway / 60);
+            if (minutesWhileAway > 0) {
+              setInterruptedSession({
+                hasInterruptedSession: true,
+                elapsedTotal: totalElapsed,
+                minutesWhileAway,
+                subject: restored.state.subject,
+                technique: restored.state.technique.type,
+              });
+            }
           } else {
-            setTimerState(loadedTimerState);
+            setTimerState(restored.state);
           }
         }
 
@@ -164,6 +201,31 @@ function AppContent() {
 
     loadUserData();
   }, [user, dataLoadedForUser]);
+
+  // Update persistence service callback when timerState changes
+  useEffect(() => {
+    if (user) {
+      timerPersistenceService.initialize(user.id, () => timerState);
+    }
+  }, [user, timerState]);
+
+  // Save timer state with debounce whenever it changes (while running)
+  useEffect(() => {
+    if (!user) return;
+
+    // Only save if timer has meaningful state
+    if (timerState.isRunning || timerState.accumulatedTime > 0) {
+      timerPersistenceService.save(timerState);
+    }
+  }, [user, timerState]);
+
+  // Cleanup services on unmount
+  useEffect(() => {
+    return () => {
+      timerPersistenceService.destroy();
+      pushNotificationService.destroy();
+    };
+  }, []);
 
   // Dark mode
   useEffect(() => {
@@ -197,13 +259,13 @@ function AppContent() {
     return () => clearInterval(interval);
   }, [timerState.isRunning]);
 
-  // Sync timer state every hour
+  // Sync timer state every hour (keeping existing logic as backup)
   useEffect(() => {
     if (!user || !timerState.isRunning) return;
 
     const syncInterval = window.setInterval(async () => {
       console.log("⏰ Syncing timer state to Supabase...");
-      await saveTimerState(user.id, timerState);
+      timerPersistenceService.save(timerState, true); // Force immediate save
     }, SYNC_INTERVAL);
 
     return () => clearInterval(syncInterval);
@@ -417,16 +479,98 @@ function AppContent() {
     setNotificationSettings(settings);
   };
 
-  // Timer handlers
-  const handleStartTimer = () => {
+  // Interrupted session handlers
+  const handleDismissInterruptedSession = () => {
+    setInterruptedSession(null);
+  };
+
+  const handleResumeInterruptedSession = () => {
+    // Resume the timer from where it was
     setTimerState((prev) => ({
       ...prev,
       isRunning: true,
       startTime: Date.now(),
     }));
+    setInterruptedSession(null);
+  };
+
+  const handleSaveInterruptedSession = async () => {
+    if (!user || !interruptedSession) return;
+
+    const totalSeconds = interruptedSession.elapsedTotal;
+    if (totalSeconds < 10) {
+      setInterruptedSession(null);
+      return;
+    }
+
+    const newSession = {
+      subject: timerState.subject || "General",
+      startTime: Date.now() - totalSeconds * 1000,
+      endTime: Date.now(),
+      durationSeconds: totalSeconds,
+      notes: timerState.notes,
+    };
+
+    await addSession(newSession);
+
+    // Clear timer state from Supabase
+    await clearTimerState(user.id);
+    timerPersistenceService.clearLocalBackup();
+
+    // Reset timer
+    setTimerState((prev) => ({
+      isRunning: false,
+      startTime: null,
+      accumulatedTime: 0,
+      subject: "General",
+      notes: "",
+      technique: resetCycles(getTechniqueConfig(prev.technique.type)),
+      pomodoroStats: prev.pomodoroStats,
+    }));
+
+    // Add category if new
+    if (newSession.subject && !categories.includes(newSession.subject)) {
+      setCategories((prev) => [newSession.subject, ...prev].slice(0, 20));
+    }
+
+    setInterruptedSession(null);
+  };
+
+  // Timer handlers
+  const handleStartTimer = () => {
+    // Dismiss any interrupted session banner when starting
+    setInterruptedSession(null);
+
+    const now = Date.now();
+    const technique = timerState.technique;
+
+    setTimerState((prev) => ({
+      ...prev,
+      isRunning: true,
+      startTime: now,
+    }));
+
+    // Schedule push notification for timer completion (if technique has duration)
+    if (technique.type !== "libre" && isPushSupported()) {
+      const duration = technique.isBreakTime
+        ? technique.breakDuration
+        : technique.workDuration;
+      const endTime = now + (duration - timerState.accumulatedTime) * 1000;
+
+      if (technique.isBreakTime) {
+        scheduleBreakCompleteNotification(endTime).catch(console.error);
+      } else {
+        scheduleWorkCompleteNotification(endTime, timerState.subject).catch(
+          console.error
+        );
+      }
+    }
   };
 
   const handlePauseTimer = () => {
+    // Cancel any scheduled push notifications
+    cancelPendingNotifications().catch(console.error);
+
     setTimerState((prev) => {
       if (!prev.startTime) return prev;
       const currentSegment = Math.floor((Date.now() - prev.startTime) / 1000);
@@ -448,6 +592,11 @@ function AppContent() {
     ) {
       return;
     }
+    // Cancel any scheduled push notifications
+    cancelPendingNotifications().catch(console.error);
+
+    // Clear interrupted session if any
+    setInterruptedSession(null);
     setTimerState((prev) => ({
       isRunning: false,
       startTime: null,
@@ -457,10 +606,18 @@ function AppContent() {
       technique: resetCycles(getTechniqueConfig(prev.technique.type)),
       pomodoroStats: prev.pomodoroStats,
     }));
+    // Clear backups
+    if (user) {
+      clearTimerState(user.id);
+      timerPersistenceService.clearLocalBackup();
+    }
   };
 
   const handleSaveSession = async () => {
     if (!user) return;
+
+    // Cancel any scheduled push notifications
+    cancelPendingNotifications().catch(console.error);
 
     if (elapsedSeconds < 10) {
       alert("La sesión es muy corta para guardarse (< 10 segundos).");
@@ -477,8 +634,9 @@ function AppContent() {
 
     await addSession(newSession);
 
-    // Clear timer state from Supabase
+    // Clear timer state from Supabase and localStorage backup
     await clearTimerState(user.id);
+    timerPersistenceService.clearLocalBackup();
 
     // Reset timer
     setTimerState((prev) => ({
@@ -505,6 +663,10 @@ function AppContent() {
   };
 
   const handleSignOut = async () => {
+    // Clear persistence data before signing out
+    timerPersistenceService.clearLocalBackup();
+    timerPersistenceService.destroy();
+
     await signOut();
     // Reset state
     setSessions([]);
@@ -695,6 +857,10 @@ function AppContent() {
               onPause={handlePauseTimer}
               onReset={handleResetTimer}
               onSave={handleSaveSession}
+              interruptedSession={interruptedSession}
+              onDismissInterrupted={handleDismissInterruptedSession}
+              onResumeInterrupted={handleResumeInterruptedSession}
+              onSaveInterrupted={handleSaveInterruptedSession}
             />
           </div>
         )}

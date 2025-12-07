@@ -76,6 +76,10 @@ export default defineConfig(({ mode }) => {
         },
         devOptions: {
           enabled: true
+        },
+        // Include custom service worker additions
+        injectManifest: {
+          injectionPoint: undefined
         }
       })
     ],
@@ -84,6 +88,8 @@ export default defineConfig(({ mode }) => {
       alias: {
         '@': path.resolve(__dirname, '.'),
       }
-    }
+    },
+    // Copy sw-custom.js to public folder is already there
+    publicDir: 'public'
   };
 });

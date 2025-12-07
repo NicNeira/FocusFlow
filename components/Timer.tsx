@@ -8,8 +8,14 @@ import {
   Brain,
   Target,
   Plus,
+  AlertCircle,
+  X,
 } from "lucide-react";
-import { StudyTechnique, TechniqueConfig } from "../types";
+import {
+  StudyTechnique,
+  TechniqueConfig,
+  InterruptedSessionInfo,
+} from "../types";
 import TechniqueSelector from "./TechniqueSelector";
 
 interface TimerProps {
@@ -26,6 +32,11 @@ interface TimerProps {
   onPause: () => void;
   onReset: () => void;
   onSave: () => void;
+  // Interrupted session props
+  interruptedSession: InterruptedSessionInfo | null;
+  onDismissInterrupted: () => void;
+  onResumeInterrupted: () => void;
+  onSaveInterrupted: () => void;
 }
 
 const Timer: React.FC<TimerProps> = ({
@@ -42,6 +53,10 @@ const Timer: React.FC<TimerProps> = ({
   onPause,
   onReset,
   onSave,
+  interruptedSession,
+  onDismissInterrupted,
+  onResumeInterrupted,
+  onSaveInterrupted,
 }) => {
   const formatTime = (totalSeconds: number) => {
     const h = Math.floor(totalSeconds / 3600);
@@ -71,12 +86,75 @@ const Timer: React.FC<TimerProps> = ({
     return Math.min(100, (elapsedSeconds / targetDuration) * 100);
   };
 
+  // Formatear minutos para el banner
+  const formatMinutesAway = (minutes: number) => {
+    if (minutes < 60) return `${minutes} minuto${minutes !== 1 ? "s" : ""}`;
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    if (mins === 0) return `${hours} hora${hours !== 1 ? "s" : ""}`;
+    return `${hours}h ${mins}m`;
+  };
+
   const isBreakTime = technique.isBreakTime;
   const hasTimeLimit = technique.type !== "libre";
   const progress = getProgress();
 
   return (
     <div className="flex flex-col items-center justify-center w-full max-w-2xl mx-auto p-6 animate-fade-in space-y-6">
+      {/* Banner de sesión interrumpida */}
+      {interruptedSession && interruptedSession.hasInterruptedSession && (
+        <div className="w-full bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/30 dark:to-orange-900/30 border border-amber-200 dark:border-amber-700 rounded-2xl p-4 shadow-lg animate-fade-in">
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0 p-2 bg-amber-100 dark:bg-amber-800/50 rounded-full">
+              <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-sm font-semibold text-amber-800 dark:text-amber-200 mb-1">
+                Temporizador restaurado
+              </h3>
+              <p className="text-sm text-amber-700 dark:text-amber-300 mb-3">
+                Tu temporizador estuvo corriendo por{" "}
+                <span className="font-bold">
+                  {formatMinutesAway(interruptedSession.minutesWhileAway)}
+                </span>{" "}
+                mientras la app estaba cerrada.
+                {interruptedSession.subject !== "General" && (
+                  <span>
+                    {" "}
+                    Categoría:{" "}
+                    <span className="font-medium">
+                      {interruptedSession.subject}
+                    </span>
+                  </span>
+                )}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={onResumeInterrupted}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition-colors"
+                >
+                  <Play className="w-4 h-4" fill="currentColor" />
+                  Reanudar
+                </button>
+                <button
+                  onClick={onSaveInterrupted}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg transition-colors"
+                >
+                  <Save className="w-4 h-4" />
+                  Guardar sesión
+                </button>
+                <button
+                  onClick={onDismissInterrupted}
+                  className="flex items-center gap-1.5 px-3 py-2 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-800/50 text-sm font-medium rounded-lg transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                  Descartar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Estadísticas de Pomodoros */}
       {technique.type !== "libre" && (
         <div className="flex gap-4 w-full justify-center flex-wrap">

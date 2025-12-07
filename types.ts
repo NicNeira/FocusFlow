@@ -107,3 +107,42 @@ export interface ThemeSettings {
   darkMode: boolean;
   colorPalette: ColorPaletteId;
 }
+
+// =============================================
+// TIMER PERSISTENCE TYPES
+// =============================================
+
+// Estado de restauración del temporizador
+export interface RestoredTimerState {
+  state: TimerState;
+  wasRunning: boolean;
+  elapsedWhileAway: number; // segundos transcurridos mientras cerrado
+  source: 'supabase' | 'localStorage' | 'none';
+}
+
+// Información de sesión interrumpida para mostrar al usuario
+export interface InterruptedSessionInfo {
+  hasInterruptedSession: boolean;
+  elapsedTotal: number; // segundos totales
+  minutesWhileAway: number; // minutos mientras cerrado
+  subject: string;
+  technique: StudyTechnique;
+}
+
+// Push notification subscription
+export interface PushSubscriptionData {
+  endpoint: string;
+  keys: {
+    p256dh: string;
+    auth: string;
+  };
+}
+
+// Timer notification payload para push
+export interface TimerNotificationPayload {
+  type: 'work_complete' | 'break_complete' | 'cycle_complete' | 'timer_reminder';
+  title: string;
+  body: string;
+  userId: string;
+  scheduledFor: number; // timestamp
+}
