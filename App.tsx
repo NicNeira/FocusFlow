@@ -33,6 +33,9 @@ import {
   saveTimerState,
   clearTimerState,
   getDefaultTimerState,
+  getNotificationSettings,
+  saveNotificationSettings,
+  getDefaultNotificationSettings,
 } from "./services/supabaseService";
 import {
   getTechniqueConfig,
@@ -80,15 +83,7 @@ function AppContent() {
 
   // Notification Settings
   const [notificationSettings, setNotificationSettings] =
-    useState<NotificationSettingsType>({
-      enabled: true,
-      workEndEnabled: true,
-      breakEndEnabled: true,
-      cycleCompleteEnabled: true,
-      soundEnabled: true,
-      soundVolume: 0.5,
-      vibrationEnabled: false,
-    });
+    useState<NotificationSettingsType>(getDefaultNotificationSettings());
 
   // Lifted Timer State
   const [timerState, setTimerState] =
@@ -117,11 +112,12 @@ function AppContent() {
     const loadUserData = async () => {
       setDataLoading(true);
       try {
-        const [loadedSessions, loadedObjectives, loadedTimerState] =
+        const [loadedSessions, loadedObjectives, loadedTimerState, loadedNotificationSettings] =
           await Promise.all([
             getSessions(user.id),
             getObjectives(user.id),
             getTimerState(user.id),
+            getNotificationSettings(user.id),
           ]);
 
         setSessions(loadedSessions);
@@ -153,6 +149,11 @@ function AppContent() {
           }
         }
 
+        // Restore notification settings if exists
+        if (loadedNotificationSettings) {
+          setNotificationSettings(loadedNotificationSettings);
+        }
+
         // Mark data as loaded for this user
         setDataLoadedForUser(user.id);
       } catch (error) {
@@ -176,6 +177,17 @@ function AppContent() {
     audioService.setVolume(notificationSettings.soundVolume);
     audioService.setEnabled(notificationSettings.soundEnabled);
   }, [notificationSettings]);
+
+  // Save notification settings when changed
+  useEffect(() => {
+    if (!user) return;
+
+    const saveSettings = async () => {
+      await saveNotificationSettings(user.id, notificationSettings);
+    };
+
+    saveSettings();
+  }, [user, notificationSettings]);
 
   useEffect(() => {
     if (darkMode) {
@@ -227,22 +239,42 @@ function AppContent() {
     const technique = timerState.technique;
 
     if (shouldTransitionToBreak(elapsedSeconds, technique)) {
+      // Notificación de fin de trabajo
+      if (notificationSettings.enabled && notificationSettings.workEndEnabled) {
+        notificationService.notifyWorkPeriodEnd(
+          technique.type,
+          technique.breakDuration
+        );
+      }
+
+      // Audio de fin de trabajo
+      if (notificationSettings.soundEnabled) {
+        audioService.play('work-end');
+      }
+
+      // Vibración de fin de trabajo
+      if (notificationSettings.vibrationEnabled) {
+        audioService.vibrate([200, 100, 200]);
+      }
+
+      // Transición a descanso (inicia automáticamente)
       setTimerState((prev) => ({
         ...prev,
-        isRunning: false,
-        startTime: null,
+        isRunning: true,
+        startTime: Date.now(),
         accumulatedTime: 0,
         technique: startBreakTime(prev.technique),
       }));
 
-      if ("Notification" in window && Notification.permission === "granted") {
-        new Notification("FocusFlow - ¡Tiempo de Descanso!", {
-          body: `¡Excelente trabajo! Tómate ${
-            technique.breakDuration / 60
-          } minutos de descanso.`,
-          icon: "/favicon.png",
-        });
-      }
+      // Sonido de inicio de descanso (después de un pequeño delay)
+      setTimeout(() => {
+        if (notificationSettings.soundEnabled) {
+          audioService.play('achievement');
+        }
+        if (notificationSettings.vibrationEnabled) {
+          audioService.vibrate([100, 50, 100]);
+        }
+      }, 1500);
 
       return;
     }
@@ -255,21 +287,49 @@ function AppContent() {
         weekly: timerState.pomodoroStats.weekly + 1,
       };
 
+      // Notificación de fin de descanso
+      if (notificationSettings.enabled && notificationSettings.breakEndEnabled) {
+        notificationService.notifyBreakPeriodEnd();
+      }
+
+      // Notificación de ciclo completado
+      if (notificationSettings.enabled && notificationSettings.cycleCompleteEnabled) {
+        notificationService.notifyCycleComplete(
+          updatedTechnique.cyclesCompleted,
+          updatedStats.daily,
+          updatedStats.weekly
+        );
+      }
+
+      // Audio de ciclo completado
+      if (notificationSettings.soundEnabled) {
+        audioService.play('cycle-complete');
+      }
+
+      // Vibración de ciclo completado
+      if (notificationSettings.vibrationEnabled) {
+        audioService.vibrate([200, 100, 200, 100, 200]);
+      }
+
+      // Transición a trabajo (inicia automáticamente)
       setTimerState((prev) => ({
         ...prev,
-        isRunning: false,
-        startTime: null,
+        isRunning: true,
+        startTime: Date.now(),
         accumulatedTime: 0,
         technique: startWorkTime(updatedTechnique),
         pomodoroStats: updatedStats,
       }));
 
-      if ("Notification" in window && Notification.permission === "granted") {
-        new Notification("FocusFlow - ¡Ciclo Completado!", {
-          body: `¡Felicidades! Has completado el ciclo ${updatedTechnique.cyclesCompleted}. ¡Sigue así!`,
-          icon: "/favicon.png",
-        });
-      }
+      // Sonido de inicio de trabajo (después de un pequeño delay)
+      setTimeout(() => {
+        if (notificationSettings.soundEnabled) {
+          audioService.play('achievement');
+        }
+        if (notificationSettings.vibrationEnabled) {
+          audioService.vibrate([100, 50, 100]);
+        }
+      }, 1500);
     }
   }, [
     elapsedSeconds,
@@ -424,6 +484,16 @@ function AppContent() {
       isRunning: true,
       startTime: Date.now(),
     }));
+
+    // Reproducir sonido al iniciar
+    if (notificationSettings.soundEnabled) {
+      audioService.play('achievement');
+    }
+
+    // Vibración al iniciar
+    if (notificationSettings.vibrationEnabled) {
+      audioService.vibrate([100, 50, 100]);
+    }
   };
 
   const handlePauseTimer = () => {
