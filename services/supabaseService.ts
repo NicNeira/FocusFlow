@@ -1,5 +1,5 @@
 import { supabase } from './supabaseClient';
-import { StudySession, Objective, TimerState } from '../types';
+import { StudySession, Objective, TimerState, NotificationSettings } from '../types';
 import { getTechniqueConfig } from './techniqueService';
 
 // =============================================
@@ -274,3 +274,56 @@ export const getSessionsByMonth = (
     return date.getMonth() === month && date.getFullYear() === year;
   });
 };
+
+// =============================================
+// NOTIFICATION SETTINGS
+// =============================================
+
+export const getNotificationSettings = async (
+  userId: string
+): Promise<NotificationSettings | null> => {
+  const { data, error } = await supabase
+    .from('notification_settings')
+    .select('settings')
+    .eq('user_id', userId)
+    .single();
+
+  if (error) {
+    // No settings found is not an error
+    if (error.code === 'PGRST116') return null;
+    console.error('Error fetching notification settings:', error);
+    return null;
+  }
+
+  return data.settings as NotificationSettings;
+};
+
+export const saveNotificationSettings = async (
+  userId: string,
+  settings: NotificationSettings
+): Promise<boolean> => {
+  const { error } = await supabase
+    .from('notification_settings')
+    .upsert({
+      user_id: userId,
+      settings: settings,
+      updated_at: new Date().toISOString(),
+    });
+
+  if (error) {
+    console.error('Error saving notification settings:', error);
+    return false;
+  }
+
+  return true;
+};
+
+export const getDefaultNotificationSettings = (): NotificationSettings => ({
+  enabled: true,
+  workEndEnabled: true,
+  breakEndEnabled: true,
+  cycleCompleteEnabled: true,
+  soundEnabled: true,
+  soundVolume: 0.5,
+  vibrationEnabled: false,
+});

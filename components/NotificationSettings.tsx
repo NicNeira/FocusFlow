@@ -9,6 +9,7 @@ import {
   CheckCircle,
   Palette,
   Check,
+  Loader2,
 } from "lucide-react";
 import {
   NotificationSettings as NotificationSettingsType,
@@ -34,6 +35,15 @@ const SettingsComponent: React.FC<SettingsProps> = ({
   const [permissionStatus, setPermissionStatus] = useState<string>("default");
   const [showPermissionBanner, setShowPermissionBanner] = useState(false);
   const [testingSound, setTestingSound] = useState(false);
+  const [testingWorkEnd, setTestingWorkEnd] = useState(false);
+  const [testingBreakEnd, setTestingBreakEnd] = useState(false);
+  const [testingCycleComplete, setTestingCycleComplete] = useState(false);
+  const [diagnostics, setDiagnostics] = useState({
+    notificationPermission: 'default',
+    vibrationSupported: false,
+    audioContextState: 'unknown',
+    serviceWorkerRegistered: false,
+  });
 
   useEffect(() => {
     // Verificar estado de permisos al montar
@@ -100,6 +110,75 @@ const SettingsComponent: React.FC<SettingsProps> = ({
       vibrationEnabled: !settings.vibrationEnabled,
     });
   };
+
+  const handleTestWorkEnd = async () => {
+    setTestingWorkEnd(true);
+
+    if (settings.enabled && settings.workEndEnabled && permissionStatus === 'granted') {
+      await notificationService.notifyWorkPeriodEnd('Pomodoro', 300);
+    }
+
+    if (settings.soundEnabled) {
+      await audioService.play('work-end');
+    }
+
+    if (settings.vibrationEnabled) {
+      audioService.vibrate([200, 100, 200]);
+    }
+
+    setTimeout(() => setTestingWorkEnd(false), 2000);
+  };
+
+  const handleTestBreakEnd = async () => {
+    setTestingBreakEnd(true);
+
+    if (settings.enabled && settings.breakEndEnabled && permissionStatus === 'granted') {
+      await notificationService.notifyBreakPeriodEnd();
+    }
+
+    if (settings.soundEnabled) {
+      await audioService.play('break-end');
+    }
+
+    if (settings.vibrationEnabled) {
+      audioService.vibrate([200, 100, 200]);
+    }
+
+    setTimeout(() => setTestingBreakEnd(false), 2000);
+  };
+
+  const handleTestCycleComplete = async () => {
+    setTestingCycleComplete(true);
+
+    if (settings.enabled && settings.cycleCompleteEnabled && permissionStatus === 'granted') {
+      await notificationService.notifyCycleComplete(5, 3, 12);
+    }
+
+    if (settings.soundEnabled) {
+      await audioService.play('cycle-complete');
+    }
+
+    if (settings.vibrationEnabled) {
+      audioService.vibrate([200, 100, 200, 100, 200]);
+    }
+
+    setTimeout(() => setTestingCycleComplete(false), 2000);
+  };
+
+  const updateDiagnostics = async () => {
+    const swRegistration = 'serviceWorker' in navigator && navigator.serviceWorker.controller;
+
+    setDiagnostics({
+      notificationPermission: notificationService.getPermissionStatus(),
+      vibrationSupported: audioService.isVibrationSupported(),
+      audioContextState: (audioService as any).audioContext?.state || 'unknown',
+      serviceWorkerRegistered: !!swRegistration,
+    });
+  };
+
+  useEffect(() => {
+    updateDiagnostics();
+  }, []);
 
   return (
     <div className="space-y-4">
@@ -377,6 +456,109 @@ const SettingsComponent: React.FC<SettingsProps> = ({
           </div>
         </div>
       )}
+
+      {/* Sección de Pruebas */}
+      <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-4">
+        <div className="flex items-center space-x-3 mb-4">
+          <CheckCircle className="w-5 h-5 text-primary-600 dark:text-primary-400" />
+          <div>
+            <h3 className="font-semibold text-slate-800 dark:text-white">
+              Probar Notificaciones
+            </h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              Verifica que todo funcione correctamente
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <button
+            onClick={handleTestWorkEnd}
+            disabled={testingWorkEnd}
+            className="w-full px-4 py-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-between"
+          >
+            <span>Probar Fin de Trabajo</span>
+            {testingWorkEnd && <Loader2 className="w-4 h-4 animate-spin" />}
+          </button>
+
+          <button
+            onClick={handleTestBreakEnd}
+            disabled={testingBreakEnd}
+            className="w-full px-4 py-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-between"
+          >
+            <span>Probar Fin de Descanso</span>
+            {testingBreakEnd && <Loader2 className="w-4 h-4 animate-spin" />}
+          </button>
+
+          <button
+            onClick={handleTestCycleComplete}
+            disabled={testingCycleComplete}
+            className="w-full px-4 py-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-between"
+          >
+            <span>Probar Ciclo Completado</span>
+            {testingCycleComplete && <Loader2 className="w-4 h-4 animate-spin" />}
+          </button>
+        </div>
+      </div>
+
+      {/* Panel de Diagnóstico */}
+      <div className="bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-semibold text-slate-700 dark:text-slate-300 text-sm">
+            Información del Sistema
+          </h3>
+          <button
+            onClick={updateDiagnostics}
+            className="text-xs text-primary-600 dark:text-primary-400 hover:underline"
+          >
+            Actualizar
+          </button>
+        </div>
+
+        <div className="space-y-2 text-xs">
+          <div className="flex justify-between">
+            <span className="text-slate-600 dark:text-slate-400">Permisos:</span>
+            <span className={`font-medium ${
+              diagnostics.notificationPermission === 'granted'
+                ? 'text-green-600 dark:text-green-400'
+                : diagnostics.notificationPermission === 'denied'
+                ? 'text-red-600 dark:text-red-400'
+                : 'text-amber-600 dark:text-amber-400'
+            }`}>
+              {diagnostics.notificationPermission}
+            </span>
+          </div>
+
+          <div className="flex justify-between">
+            <span className="text-slate-600 dark:text-slate-400">Vibración:</span>
+            <span className={`font-medium ${
+              diagnostics.vibrationSupported
+                ? 'text-green-600 dark:text-green-400'
+                : 'text-slate-500 dark:text-slate-500'
+            }`}>
+              {diagnostics.vibrationSupported ? 'Sí' : 'No'}
+            </span>
+          </div>
+
+          <div className="flex justify-between">
+            <span className="text-slate-600 dark:text-slate-400">Audio:</span>
+            <span className="font-medium text-slate-700 dark:text-slate-300">
+              {diagnostics.audioContextState}
+            </span>
+          </div>
+
+          <div className="flex justify-between">
+            <span className="text-slate-600 dark:text-slate-400">Service Worker:</span>
+            <span className={`font-medium ${
+              diagnostics.serviceWorkerRegistered
+                ? 'text-green-600 dark:text-green-400'
+                : 'text-slate-500 dark:text-slate-500'
+            }`}>
+              {diagnostics.serviceWorkerRegistered ? 'Activo' : 'Inactivo'}
+            </span>
+          </div>
+        </div>
+      </div>
 
       {/* Configuración de Paleta de Colores */}
       <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-4">
