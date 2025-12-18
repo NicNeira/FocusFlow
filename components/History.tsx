@@ -8,6 +8,7 @@ import {
   TrendingUp,
   Target,
   Award,
+  ChevronDown,
 } from "lucide-react";
 import {
   getLast6Months,
@@ -19,11 +20,19 @@ interface HistoryProps {
   onDeleteSession: (id: string) => void;
 }
 
+const COLORS = [
+  "#00f5ff", // cyan
+  "#ff00ff", // magenta
+  "#00ff88", // lime
+  "#8b5cf6", // violet
+  "#fbbf24", // amber
+  "#ef4444", // red
+];
+
 const History: React.FC<HistoryProps> = ({ sessions, onDeleteSession }) => {
   const months = useMemo(() => getLast6Months(), []);
   const [selectedMonth, setSelectedMonth] = useState(months[0]);
 
-  // Filtrar sesiones por mes seleccionado
   const filteredSessions = useMemo(() => {
     return getSessionsByMonth(
       sessions,
@@ -32,7 +41,6 @@ const History: React.FC<HistoryProps> = ({ sessions, onDeleteSession }) => {
     ).sort((a, b) => b.endTime - a.endTime);
   }, [sessions, selectedMonth]);
 
-  // Calcular resumen mensual
   const monthlySummary: MonthlySummary = useMemo(() => {
     const monthSessions = filteredSessions;
     const totalSeconds = monthSessions.reduce(
@@ -70,110 +78,188 @@ const History: React.FC<HistoryProps> = ({ sessions, onDeleteSession }) => {
     return (seconds / 3600).toFixed(1);
   };
 
-  // Colores para categorías
-  const COLORS = [
-    "#8b5cf6",
-    "#ec4899",
-    "#3b82f6",
-    "#10b981",
-    "#f59e0b",
-    "#6366f1",
+  const statsCards = [
+    {
+      icon: Clock,
+      value: `${formatHours(monthlySummary.totalSeconds)}h`,
+      label: "Total Horas",
+      color: "var(--accent-cyan)",
+      bg: "rgba(0, 245, 255, 0.1)",
+    },
+    {
+      icon: Target,
+      value: monthlySummary.totalSessions.toString(),
+      label: "Sesiones",
+      color: "var(--accent-magenta)",
+      bg: "rgba(255, 0, 255, 0.1)",
+    },
+    {
+      icon: Award,
+      value: monthlySummary.daysActive.toString(),
+      label: "Días Activos",
+      color: "var(--accent-lime)",
+      bg: "rgba(0, 255, 136, 0.1)",
+    },
   ];
 
   return (
-    <div className="space-y-6 max-w-3xl mx-auto">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold flex items-center">
-          <Calendar className="mr-2" /> Historial
-        </h2>
-
-        {/* Selector de Mes */}
-        <select
-          value={`${selectedMonth.month}-${selectedMonth.year}`}
-          onChange={(e) => {
-            const [month, year] = e.target.value.split("-").map(Number);
-            const found = months.find(
-              (m) => m.month === month && m.year === year
-            );
-            if (found) setSelectedMonth(found);
-          }}
-          className="px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-medium focus:ring-2 focus:ring-primary-500 outline-none"
+    <div className="space-y-6 max-w-3xl mx-auto pb-20">
+      {/* Header */}
+      <div className="text-center mb-8">
+        <h2
+          className="text-3xl font-bold mb-2"
+          style={{ color: "var(--text-primary)" }}
         >
-          {months.map((m) => (
-            <option key={`${m.month}-${m.year}`} value={`${m.month}-${m.year}`}>
-              {m.label}
-            </option>
-          ))}
-        </select>
+          Historial
+        </h2>
+        <p style={{ color: "var(--text-muted)" }}>
+          Revisa tus sesiones de estudio anteriores
+        </p>
       </div>
 
-      {/* Resumen Mensual */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-sm">
-        <h3 className="text-lg font-semibold mb-4 flex items-center">
-          <TrendingUp className="w-5 h-5 mr-2 text-primary-500" /> Resumen de{" "}
-          {selectedMonth.label}
+      {/* Month Selector */}
+      <div className="flex justify-center mb-6">
+        <div className="relative">
+          <select
+            value={`${selectedMonth.month}-${selectedMonth.year}`}
+            onChange={(e) => {
+              const [month, year] = e.target.value.split("-").map(Number);
+              const found = months.find(
+                (m) => m.month === month && m.year === year
+              );
+              if (found) setSelectedMonth(found);
+            }}
+            className="appearance-none px-6 py-3 pr-12 rounded-xl text-sm font-semibold cursor-pointer outline-none transition-all"
+            style={{
+              background: "var(--bg-elevated)",
+              border: "1px solid var(--glass-border)",
+              color: "var(--text-primary)",
+            }}
+          >
+            {months.map((m) => (
+              <option key={`${m.month}-${m.year}`} value={`${m.month}-${m.year}`}>
+                {m.label}
+              </option>
+            ))}
+          </select>
+          <ChevronDown
+            className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none"
+            style={{ color: "var(--text-muted)" }}
+          />
+        </div>
+      </div>
+
+      {/* Monthly Summary */}
+      <div
+        className="glass-card p-6 animate-fade-in-up"
+        style={{ animationDelay: "0.1s" }}
+      >
+        <h3
+          className="text-lg font-semibold mb-6 flex items-center gap-2"
+          style={{ color: "var(--text-primary)" }}
+        >
+          <div
+            className="w-8 h-8 rounded-lg flex items-center justify-center"
+            style={{ background: "rgba(139, 92, 246, 0.1)" }}
+          >
+            <TrendingUp className="w-4 h-4" style={{ color: "var(--accent-violet)" }} />
+          </div>
+          Resumen de {selectedMonth.label}
         </h3>
 
-        {/* Stats Cards */}
+        {/* Stats Grid */}
         <div className="grid grid-cols-3 gap-4 mb-6">
-          <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-4 text-center">
-            <div className="flex items-center justify-center mb-2">
-              <Clock className="w-5 h-5 text-violet-500" />
+          {statsCards.map(({ icon: Icon, value, label, color, bg }) => (
+            <div
+              key={label}
+              className="rounded-xl p-4 text-center transition-transform hover:scale-105"
+              style={{ background: "var(--bg-elevated)" }}
+            >
+              <div
+                className="w-10 h-10 rounded-lg mx-auto mb-3 flex items-center justify-center"
+                style={{ background: bg }}
+              >
+                <Icon className="w-5 h-5" style={{ color }} />
+              </div>
+              <p
+                className="text-2xl font-bold font-mono"
+                style={{ color: "var(--text-primary)" }}
+              >
+                {value}
+              </p>
+              <p
+                className="text-xs uppercase tracking-wider mt-1"
+                style={{ color: "var(--text-muted)" }}
+              >
+                {label}
+              </p>
             </div>
-            <p className="text-2xl font-bold text-slate-800 dark:text-slate-100">
-              {formatHours(monthlySummary.totalSeconds)}h
-            </p>
-            <p className="text-xs text-slate-500">Total Horas</p>
-          </div>
-          <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-4 text-center">
-            <div className="flex items-center justify-center mb-2">
-              <Target className="w-5 h-5 text-pink-500" />
-            </div>
-            <p className="text-2xl font-bold text-slate-800 dark:text-slate-100">
-              {monthlySummary.totalSessions}
-            </p>
-            <p className="text-xs text-slate-500">Sesiones</p>
-          </div>
-          <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-4 text-center">
-            <div className="flex items-center justify-center mb-2">
-              <Award className="w-5 h-5 text-emerald-500" />
-            </div>
-            <p className="text-2xl font-bold text-slate-800 dark:text-slate-100">
-              {monthlySummary.daysActive}
-            </p>
-            <p className="text-xs text-slate-500">Días Activos</p>
-          </div>
+          ))}
         </div>
 
-        {/* Distribución por Categoría */}
+        {/* Category Distribution */}
         {Object.keys(monthlySummary.byCategory).length > 0 && (
-          <div>
-            <h4 className="text-sm font-medium text-slate-600 dark:text-slate-400 mb-3">
+          <div
+            className="pt-6"
+            style={{ borderTop: "1px solid var(--glass-border)" }}
+          >
+            <h4
+              className="text-sm font-semibold mb-4"
+              style={{ color: "var(--text-secondary)" }}
+            >
               Por Categoría
             </h4>
-            <div className="space-y-2">
+            <div className="space-y-3">
               {Object.entries(monthlySummary.byCategory)
                 .sort(([, a], [, b]) => b - a)
                 .map(([category, seconds], index) => {
                   const percentage =
                     (seconds / monthlySummary.totalSeconds) * 100;
                   return (
-                    <div key={category} className="flex items-center space-x-3">
+                    <div key={category} className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="w-2 h-2 rounded-full"
+                            style={{
+                              backgroundColor: COLORS[index % COLORS.length],
+                              boxShadow: `0 0 8px ${COLORS[index % COLORS.length]}`,
+                            }}
+                          />
+                          <span
+                            className="text-sm truncate max-w-[150px]"
+                            style={{ color: "var(--text-secondary)" }}
+                          >
+                            {category}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span
+                            className="text-sm font-mono"
+                            style={{ color: "var(--text-primary)" }}
+                          >
+                            {formatHours(seconds)}h
+                          </span>
+                          <span
+                            className="text-xs w-10 text-right"
+                            style={{ color: "var(--text-muted)" }}
+                          >
+                            {percentage.toFixed(0)}%
+                          </span>
+                        </div>
+                      </div>
                       <div
-                        className="w-3 h-3 rounded-full flex-shrink-0"
-                        style={{
-                          backgroundColor: COLORS[index % COLORS.length],
-                        }}
-                      ></div>
-                      <span className="text-sm text-slate-700 dark:text-slate-300 flex-1 truncate">
-                        {category}
-                      </span>
-                      <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
-                        {formatHours(seconds)}h
-                      </span>
-                      <span className="text-xs text-slate-400 w-12 text-right">
-                        {percentage.toFixed(0)}%
-                      </span>
+                        className="w-full h-1.5 rounded-full overflow-hidden"
+                        style={{ background: "var(--bg-elevated)" }}
+                      >
+                        <div
+                          className="h-full rounded-full transition-all duration-500"
+                          style={{
+                            width: `${percentage}%`,
+                            background: COLORS[index % COLORS.length],
+                          }}
+                        />
+                      </div>
                     </div>
                   );
                 })}
@@ -182,70 +268,125 @@ const History: React.FC<HistoryProps> = ({ sessions, onDeleteSession }) => {
         )}
 
         {monthlySummary.totalSessions === 0 && (
-          <p className="text-slate-400 text-sm italic text-center py-4">
-            No hay actividad registrada en este mes.
-          </p>
+          <div
+            className="text-center py-8"
+            style={{ color: "var(--text-muted)" }}
+          >
+            <Calendar className="w-12 h-12 mx-auto mb-3 opacity-30" />
+            <p className="text-sm">No hay actividad registrada en este mes</p>
+          </div>
         )}
       </div>
 
-      {/* Lista de Sesiones */}
-      <div className="space-y-3">
-        <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-300">
-          Sesiones ({filteredSessions.length})
+      {/* Sessions List */}
+      <div className="space-y-4">
+        <h3
+          className="text-lg font-semibold flex items-center gap-2"
+          style={{ color: "var(--text-primary)" }}
+        >
+          Sesiones
+          <span
+            className="text-sm font-mono px-2 py-0.5 rounded-full"
+            style={{
+              background: "var(--bg-elevated)",
+              color: "var(--text-muted)",
+            }}
+          >
+            {filteredSessions.length}
+          </span>
         </h3>
 
         {filteredSessions.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-32 text-slate-400 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
-            <BookOpen className="w-8 h-8 mb-2 opacity-50" />
-            <p className="text-sm">No hay sesiones en este mes.</p>
+          <div
+            className="glass-card flex flex-col items-center justify-center py-12 animate-fade-in-up"
+            style={{ animationDelay: "0.2s" }}
+          >
+            <BookOpen
+              className="w-12 h-12 mb-3 opacity-30"
+              style={{ color: "var(--text-muted)" }}
+            />
+            <p style={{ color: "var(--text-muted)" }}>
+              No hay sesiones en este mes
+            </p>
           </div>
         ) : (
-          filteredSessions.map((session) => (
-            <div
-              key={session.id}
-              className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 flex items-center justify-between shadow-sm hover:shadow-md transition-all"
-            >
-              <div className="flex items-center space-x-4">
-                <div className="w-12 h-12 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center text-primary-600 dark:text-primary-400">
-                  <BookOpen className="w-6 h-6" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-lg">{session.subject}</h3>
-                  <div className="flex items-center text-sm text-slate-500 dark:text-slate-400 space-x-3">
-                    <span className="flex items-center">
-                      <Calendar className="w-3 h-3 mr-1" />{" "}
-                      {new Date(session.endTime).toLocaleDateString()}
-                    </span>
-                    <span className="flex items-center">
-                      <Clock className="w-3 h-3 mr-1" />{" "}
-                      {new Date(session.endTime).toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </span>
+          <div className="space-y-3">
+            {filteredSessions.map((session, index) => (
+              <div
+                key={session.id}
+                className="glass-card p-4 flex items-center justify-between group animate-fade-in-up hover:scale-[1.01] transition-transform"
+                style={{ animationDelay: `${0.1 + index * 0.05}s` }}
+              >
+                <div className="flex items-center gap-4">
+                  {/* Icon */}
+                  <div
+                    className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+                    style={{ background: "rgba(0, 245, 255, 0.1)" }}
+                  >
+                    <BookOpen
+                      className="w-5 h-5"
+                      style={{ color: "var(--accent-cyan)" }}
+                    />
                   </div>
-                  {session.notes && (
-                    <p className="text-xs text-slate-400 mt-1 italic line-clamp-1">
-                      {session.notes}
-                    </p>
-                  )}
+
+                  {/* Info */}
+                  <div>
+                    <h4
+                      className="font-semibold text-base"
+                      style={{ color: "var(--text-primary)" }}
+                    >
+                      {session.subject}
+                    </h4>
+                    <div
+                      className="flex items-center gap-3 text-sm mt-0.5"
+                      style={{ color: "var(--text-muted)" }}
+                    >
+                      <span className="flex items-center gap-1">
+                        <Calendar className="w-3 h-3" />
+                        {new Date(session.endTime).toLocaleDateString()}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {new Date(session.endTime).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </span>
+                    </div>
+                    {session.notes && (
+                      <p
+                        className="text-xs mt-1 line-clamp-1 italic"
+                        style={{ color: "var(--text-dim)" }}
+                      >
+                        {session.notes}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Duration & Delete */}
+                <div className="flex items-center gap-4">
+                  <span
+                    className="font-mono font-bold text-lg"
+                    style={{ color: "var(--accent-cyan)" }}
+                  >
+                    {formatDuration(session.durationSeconds)}
+                  </span>
+                  <button
+                    onClick={() => onDeleteSession(session.id)}
+                    className="opacity-0 group-hover:opacity-100 p-2 rounded-lg transition-all hover:scale-110"
+                    style={{
+                      background: "var(--bg-elevated)",
+                      color: "var(--status-error)",
+                    }}
+                    title="Eliminar registro"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
-
-              <div className="flex items-center space-x-4">
-                <span className="font-mono font-bold text-lg text-primary-600 dark:text-primary-400">
-                  {formatDuration(session.durationSeconds)}
-                </span>
-                <button
-                  onClick={() => onDeleteSession(session.id)}
-                  className="p-2 text-slate-400 hover:text-red-500 transition-colors"
-                  title="Eliminar registro"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          ))
+            ))}
+          </div>
         )}
       </div>
     </div>

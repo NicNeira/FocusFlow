@@ -25,6 +25,7 @@ import {
   Square,
   ListTodo,
   Layers,
+  Sparkles,
 } from "lucide-react";
 
 interface DashboardProps {
@@ -41,12 +42,12 @@ interface DashboardProps {
 }
 
 const COLORS = [
-  "#8b5cf6",
-  "#ec4899",
-  "#3b82f6",
-  "#10b981",
-  "#f59e0b",
-  "#6366f1",
+  "#00f5ff", // cyan
+  "#ff00ff", // magenta
+  "#00ff88", // lime
+  "#8b5cf6", // violet
+  "#fbbf24", // amber
+  "#ef4444", // red
 ];
 
 const Dashboard: React.FC<DashboardProps> = ({
@@ -69,17 +70,14 @@ const Dashboard: React.FC<DashboardProps> = ({
   );
   const [tempCategoryGoal, setTempCategoryGoal] = useState("");
 
-  // Stats Calculations
   const totalSeconds = sessions.reduce((acc, s) => acc + s.durationSeconds, 0);
   const totalHours = (totalSeconds / 3600).toFixed(1);
   const totalSessions = sessions.length;
 
-  // Calculate Weekly Progress
   const weeklyProgress = useMemo(() => {
     const now = new Date();
     const startOfWeek = new Date(now);
     startOfWeek.setHours(0, 0, 0, 0);
-    // Adjust to Monday (1) or Sunday (0). Assuming Monday is start of week for study logic
     const day = startOfWeek.getDay();
     const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1);
     startOfWeek.setDate(diff);
@@ -95,7 +93,6 @@ const Dashboard: React.FC<DashboardProps> = ({
     };
   }, [sessions, weeklyTarget]);
 
-  // Calculate Streak
   const daysActive = useMemo(() => {
     if (sessions.length === 0) return 0;
     const sortedDates = [
@@ -104,7 +101,6 @@ const Dashboard: React.FC<DashboardProps> = ({
     return sortedDates.length;
   }, [sessions]);
 
-  // Objectives Progress
   const objectivesStats = useMemo(() => {
     const total = objectives.length;
     const completed = objectives.filter((o) => o.isCompleted).length;
@@ -112,7 +108,6 @@ const Dashboard: React.FC<DashboardProps> = ({
     return { total, completed, percentage };
   }, [objectives]);
 
-  // Data for Charts
   const subjectData = useMemo(() => {
     const map: Record<string, number> = {};
     sessions.forEach((s) => {
@@ -121,7 +116,7 @@ const Dashboard: React.FC<DashboardProps> = ({
     return Object.keys(map)
       .map((key) => ({
         name: key,
-        value: parseFloat((map[key] / 3600).toFixed(2)), // hours
+        value: parseFloat((map[key] / 3600).toFixed(2)),
       }))
       .sort((a, b) => b.value - a.value);
   }, [sessions]);
@@ -146,7 +141,6 @@ const Dashboard: React.FC<DashboardProps> = ({
     });
   }, [sessions]);
 
-  // Calcular progreso por categoría para la semana actual
   const categoryProgress = useMemo(() => {
     const now = new Date();
     const startOfWeek = new Date(now);
@@ -174,7 +168,6 @@ const Dashboard: React.FC<DashboardProps> = ({
     return progress;
   }, [sessions, categories, categoryGoals]);
 
-  // Formatter para tooltip que muestra formato largo
   const formatHoursLong = (value: number): string => {
     const h = Math.floor(value);
     const m = Math.round((value % 1) * 60);
@@ -207,70 +200,116 @@ const Dashboard: React.FC<DashboardProps> = ({
     setIsEditingTarget(false);
   };
 
+  const statsCards = [
+    {
+      icon: Clock,
+      label: "Tiempo Total",
+      value: `${totalHours}h`,
+      color: "var(--accent-cyan)",
+      bg: "rgba(0, 245, 255, 0.1)",
+    },
+    {
+      icon: CheckCircle2,
+      label: "Sesiones",
+      value: totalSessions.toString(),
+      color: "var(--accent-magenta)",
+      bg: "rgba(255, 0, 255, 0.1)",
+    },
+    {
+      icon: Award,
+      label: "Días Activos",
+      value: daysActive.toString(),
+      color: "var(--accent-lime)",
+      bg: "rgba(0, 255, 136, 0.1)",
+    },
+  ];
+
   return (
-    <div className="space-y-6 pb-20 animate-fade-in">
+    <div className="space-y-6 pb-20">
+      {/* Header */}
+      <div className="text-center mb-8">
+        <h2
+          className="text-3xl font-bold mb-2"
+          style={{ color: "var(--text-primary)" }}
+        >
+          Dashboard
+        </h2>
+        <p style={{ color: "var(--text-muted)" }}>
+          Visualiza tu progreso y mantén el enfoque
+        </p>
+      </div>
+
       {/* Top Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center space-x-4">
-          <div className="p-3 bg-violet-100 dark:bg-violet-900/30 rounded-lg text-violet-600">
-            <Clock className="w-6 h-6" />
+        {statsCards.map(({ icon: Icon, label, value, color, bg }, index) => (
+          <div
+            key={label}
+            className="glass-card p-6 flex items-center gap-4 hover:scale-[1.02] transition-transform animate-fade-in-up"
+            style={{ animationDelay: `${index * 0.1}s` }}
+          >
+            <div
+              className="w-14 h-14 rounded-2xl flex items-center justify-center"
+              style={{ background: bg }}
+            >
+              <Icon className="w-6 h-6" style={{ color }} />
+            </div>
+            <div>
+              <p
+                className="text-xs uppercase tracking-wider mb-1"
+                style={{ color: "var(--text-muted)" }}
+              >
+                {label}
+              </p>
+              <h3
+                className="text-3xl font-bold font-mono"
+                style={{ color: "var(--text-primary)" }}
+              >
+                {value}
+              </h3>
+            </div>
           </div>
-          <div>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              Tiempo Total
-            </p>
-            <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
-              {totalHours} hrs
-            </h3>
-          </div>
-        </div>
-        <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center space-x-4">
-          <div className="p-3 bg-pink-100 dark:bg-pink-900/30 rounded-lg text-pink-600">
-            <CheckCircle2 className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              Sesiones
-            </p>
-            <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
-              {totalSessions}
-            </h3>
-          </div>
-        </div>
-        <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center space-x-4">
-          <div className="p-3 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg text-emerald-600">
-            <Award className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              Días Activos
-            </p>
-            <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
-              {daysActive}
-            </h3>
-          </div>
-        </div>
+        ))}
       </div>
 
       {/* Goals & Objectives Section */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Weekly Goal Card */}
-        <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-semibold flex items-center">
-              <Target className="w-5 h-5 mr-2 text-primary-500" /> Meta Semanal
+        <div
+          className="glass-card p-6 animate-fade-in-up"
+          style={{ animationDelay: "0.3s" }}
+        >
+          <div className="flex justify-between items-center mb-6">
+            <h3
+              className="text-lg font-semibold flex items-center gap-2"
+              style={{ color: "var(--text-primary)" }}
+            >
+              <div
+                className="w-8 h-8 rounded-lg flex items-center justify-center"
+                style={{ background: "rgba(0, 245, 255, 0.1)" }}
+              >
+                <Target className="w-4 h-4" style={{ color: "var(--accent-cyan)" }} />
+              </div>
+              Meta Semanal
             </h3>
             {!isEditingTarget ? (
               <button
                 onClick={() => setIsEditingTarget(true)}
-                className="text-slate-400 hover:text-primary-500 transition-colors"
+                className="w-8 h-8 rounded-lg flex items-center justify-center transition-all hover:scale-110"
+                style={{
+                  background: "var(--bg-elevated)",
+                  color: "var(--text-muted)",
+                }}
               >
                 <Edit2 className="w-4 h-4" />
               </button>
             ) : (
               <button
                 onClick={saveTarget}
-                className="text-green-500 font-bold text-xs bg-green-100 dark:bg-green-900 px-2 py-1 rounded"
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all hover:scale-105"
+                style={{
+                  background: "var(--accent-lime)",
+                  color: "var(--bg-base)",
+                }}
               >
                 Guardar
               </button>
@@ -279,49 +318,88 @@ const Dashboard: React.FC<DashboardProps> = ({
 
           <div className="flex flex-col items-center">
             {isEditingTarget ? (
-              <div className="flex items-center space-x-2 mb-4">
+              <div className="flex items-center gap-2 mb-4">
                 <input
                   type="number"
                   value={tempTarget}
                   onChange={(e) => setTempTarget(e.target.value)}
-                  className="w-20 p-2 border rounded text-center dark:bg-slate-800 dark:border-slate-700"
+                  className="w-24 p-3 rounded-xl text-center font-mono font-bold text-xl"
+                  style={{
+                    background: "var(--bg-elevated)",
+                    border: "1px solid var(--glass-border)",
+                    color: "var(--text-primary)",
+                  }}
                   autoFocus
                 />
-                <span className="text-slate-500">hrs</span>
+                <span style={{ color: "var(--text-muted)" }}>hrs</span>
               </div>
             ) : (
-              <div className="text-3xl font-bold text-slate-800 dark:text-slate-100 mb-2">
-                {weeklyProgress.hours}{" "}
-                <span className="text-base font-normal text-slate-500">
-                  / {weeklyTarget} hrs
+              <div className="mb-4">
+                <span
+                  className="text-5xl font-bold font-mono"
+                  style={{ color: "var(--accent-cyan)" }}
+                >
+                  {weeklyProgress.hours}
+                </span>
+                <span
+                  className="text-xl ml-2"
+                  style={{ color: "var(--text-muted)" }}
+                >
+                  / {weeklyTarget}h
                 </span>
               </div>
             )}
 
             {/* Progress Bar */}
-            <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-4 overflow-hidden mb-2">
+            <div
+              className="w-full h-3 rounded-full overflow-hidden mb-3"
+              style={{ background: "var(--bg-elevated)" }}
+            >
               <div
-                className="bg-gradient-to-r from-primary-500 to-violet-500 h-full rounded-full transition-all duration-1000 ease-out"
-                style={{ width: `${weeklyProgress.percentage}%` }}
-              ></div>
+                className="h-full rounded-full transition-all duration-1000 ease-out"
+                style={{
+                  width: `${weeklyProgress.percentage}%`,
+                  background: weeklyProgress.percentage >= 100
+                    ? "var(--accent-lime)"
+                    : "linear-gradient(90deg, var(--accent-cyan), var(--accent-magenta))",
+                  boxShadow: weeklyProgress.percentage >= 100
+                    ? "var(--glow-lime)"
+                    : "0 0 20px rgba(0, 245, 255, 0.4)",
+                }}
+              />
             </div>
-            <p className="text-xs text-slate-500 text-center">
-              {weeklyProgress.percentage >= 100
-                ? "¡Felicidades! Has alcanzado tu meta semanal. 🎉"
-                : `Te faltan ${(weeklyTarget - weeklyProgress.hours).toFixed(
-                    1
-                  )} horas para tu meta.`}
+
+            <p
+              className="text-sm text-center flex items-center gap-2"
+              style={{ color: "var(--text-muted)" }}
+            >
+              {weeklyProgress.percentage >= 100 ? (
+                <>
+                  <Sparkles className="w-4 h-4" style={{ color: "var(--accent-lime)" }} />
+                  <span style={{ color: "var(--accent-lime)" }}>
+                    ¡Meta alcanzada!
+                  </span>
+                </>
+              ) : (
+                `Te faltan ${(weeklyTarget - weeklyProgress.hours).toFixed(1)}h para tu meta`
+              )}
             </p>
           </div>
 
-          {/* Metas por Categoría - Integradas en la tarjeta */}
+          {/* Category Goals */}
           {categories.length > 0 && (
-            <div className="mt-6 pt-4 border-t border-slate-200 dark:border-slate-700">
-              <h4 className="text-sm font-semibold mb-3 flex items-center text-slate-600 dark:text-slate-400">
-                <Layers className="w-4 h-4 mr-2 text-emerald-500" /> Por
-                Categoría
+            <div
+              className="mt-6 pt-6"
+              style={{ borderTop: "1px solid var(--glass-border)" }}
+            >
+              <h4
+                className="text-sm font-semibold mb-4 flex items-center gap-2"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                <Layers className="w-4 h-4" style={{ color: "var(--accent-lime)" }} />
+                Por Categoría
               </h4>
-              <div className="space-y-3 max-h-48 overflow-y-auto pr-1 custom-scrollbar">
+              <div className="space-y-3 max-h-48 overflow-y-auto pr-1">
                 {categories.map((category) => {
                   const progress = categoryProgress[category] || {
                     current: 0,
@@ -329,56 +407,61 @@ const Dashboard: React.FC<DashboardProps> = ({
                   };
                   const percentage =
                     progress.target > 0
-                      ? Math.min(
-                          100,
-                          (progress.current / progress.target) * 100
-                        )
+                      ? Math.min(100, (progress.current / progress.target) * 100)
                       : 0;
 
                   return (
-                    <div key={category} className="space-y-1">
+                    <div key={category} className="space-y-1.5">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate max-w-[120px]">
+                        <span
+                          className="text-sm font-medium truncate max-w-[120px]"
+                          style={{ color: "var(--text-secondary)" }}
+                        >
                           {category}
                         </span>
-                        <div className="flex items-center space-x-2">
+                        <div className="flex items-center gap-2">
                           {editingCategoryGoal === category ? (
                             <>
                               <input
                                 type="number"
                                 value={tempCategoryGoal}
-                                onChange={(e) =>
-                                  setTempCategoryGoal(e.target.value)
-                                }
-                                className="w-14 p-1 text-xs border rounded text-center dark:bg-slate-800 dark:border-slate-700"
+                                onChange={(e) => setTempCategoryGoal(e.target.value)}
+                                className="w-14 p-1.5 text-xs rounded-lg text-center font-mono"
+                                style={{
+                                  background: "var(--bg-elevated)",
+                                  border: "1px solid var(--glass-border)",
+                                  color: "var(--text-primary)",
+                                }}
                                 min="0"
                                 step="0.5"
                                 autoFocus
                               />
-                              <span className="text-xs text-slate-500">h</span>
                               <button
                                 onClick={() => handleSaveCategoryGoal(category)}
-                                className="text-green-500 text-xs font-bold bg-green-100 dark:bg-green-900 px-1.5 py-0.5 rounded"
+                                className="px-2 py-1 rounded text-xs font-semibold"
+                                style={{
+                                  background: "var(--accent-lime)",
+                                  color: "var(--bg-base)",
+                                }}
                               >
                                 OK
                               </button>
                             </>
                           ) : (
                             <>
-                              <span className="text-xs text-slate-600 dark:text-slate-400">
-                                {progress.current}h /{" "}
-                                {progress.target > 0
-                                  ? `${progress.target}h`
-                                  : "Sin meta"}
+                              <span
+                                className="text-xs font-mono"
+                                style={{ color: "var(--text-muted)" }}
+                              >
+                                {progress.current}h / {progress.target > 0 ? `${progress.target}h` : "-"}
                               </span>
                               <button
                                 onClick={() => {
                                   setEditingCategoryGoal(category);
-                                  setTempCategoryGoal(
-                                    progress.target.toString()
-                                  );
+                                  setTempCategoryGoal(progress.target.toString());
                                 }}
-                                className="text-slate-400 hover:text-primary-500 transition-colors"
+                                className="p-1 rounded hover:scale-110 transition-transform"
+                                style={{ color: "var(--text-muted)" }}
                               >
                                 <Edit2 className="w-3 h-3" />
                               </button>
@@ -386,15 +469,17 @@ const Dashboard: React.FC<DashboardProps> = ({
                           )}
                         </div>
                       </div>
-                      <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                      <div
+                        className="w-full h-1.5 rounded-full overflow-hidden"
+                        style={{ background: "var(--bg-elevated)" }}
+                      >
                         <div
-                          className={`h-full rounded-full transition-all duration-500 ease-out ${
-                            percentage >= 100
-                              ? "bg-emerald-500"
-                              : "bg-primary-500"
-                          }`}
-                          style={{ width: `${percentage}%` }}
-                        ></div>
+                          className="h-full rounded-full transition-all duration-500"
+                          style={{
+                            width: `${percentage}%`,
+                            background: percentage >= 100 ? "var(--accent-lime)" : "var(--accent-cyan)",
+                          }}
+                        />
                       </div>
                     </div>
                   );
@@ -404,60 +489,109 @@ const Dashboard: React.FC<DashboardProps> = ({
           )}
         </div>
 
-        {/* To-Do List / Objectives */}
-        <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col">
-          <div className="flex justify-between items-end mb-2">
-            <h3 className="text-lg font-semibold flex items-center">
-              <ListTodo className="w-5 h-5 mr-2 text-pink-500" /> To-Do List
+        {/* To-Do List */}
+        <div
+          className="glass-card p-6 flex flex-col animate-fade-in-up"
+          style={{ animationDelay: "0.4s" }}
+        >
+          <div className="flex justify-between items-center mb-4">
+            <h3
+              className="text-lg font-semibold flex items-center gap-2"
+              style={{ color: "var(--text-primary)" }}
+            >
+              <div
+                className="w-8 h-8 rounded-lg flex items-center justify-center"
+                style={{ background: "rgba(255, 0, 255, 0.1)" }}
+              >
+                <ListTodo className="w-4 h-4" style={{ color: "var(--accent-magenta)" }} />
+              </div>
+              To-Do List
             </h3>
-            <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
+            <span
+              className="text-sm font-bold font-mono px-3 py-1 rounded-full"
+              style={{
+                background: "rgba(255, 0, 255, 0.1)",
+                color: "var(--accent-magenta)",
+              }}
+            >
               {Math.round(objectivesStats.percentage)}%
             </span>
           </div>
 
-          {/* Objectives Progress Bar */}
-          <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2 mb-4">
+          {/* Progress Bar */}
+          <div
+            className="w-full h-2 rounded-full overflow-hidden mb-4"
+            style={{ background: "var(--bg-elevated)" }}
+          >
             <div
-              className="bg-pink-500 h-2 rounded-full transition-all duration-500 ease-out"
-              style={{ width: `${objectivesStats.percentage}%` }}
-            ></div>
+              className="h-full rounded-full transition-all duration-500"
+              style={{
+                width: `${objectivesStats.percentage}%`,
+                background: "var(--accent-magenta)",
+                boxShadow: "var(--glow-magenta)",
+              }}
+            />
           </div>
 
-          <div className="flex-1 overflow-y-auto max-h-60 space-y-2 mb-4 pr-1 custom-scrollbar">
+          {/* Objectives List */}
+          <div className="flex-1 overflow-y-auto max-h-60 space-y-2 mb-4 pr-1">
             {objectives.length === 0 ? (
-              <p className="text-slate-400 text-sm italic text-center py-4">
-                Agrega tareas para mantenerte organizado.
-              </p>
+              <div
+                className="text-center py-8"
+                style={{ color: "var(--text-muted)" }}
+              >
+                <ListTodo className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                <p className="text-sm">Agrega tareas para mantenerte organizado</p>
+              </div>
             ) : (
               objectives.map((obj) => (
                 <div
                   key={obj.id}
-                  className="group flex items-center justify-between p-2 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-lg transition-colors"
+                  className="group flex items-center justify-between p-3 rounded-xl transition-all"
+                  style={{
+                    background: obj.isCompleted ? "var(--bg-elevated)" : "transparent",
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!obj.isCompleted) {
+                      e.currentTarget.style.background = "var(--bg-elevated)";
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!obj.isCompleted) {
+                      e.currentTarget.style.background = "transparent";
+                    }
+                  }}
                 >
-                  <div className="flex items-center space-x-3 overflow-hidden">
+                  <div className="flex items-center gap-3 overflow-hidden">
                     <button
                       onClick={() => onToggleObjective(obj.id)}
-                      className="flex-shrink-0 text-slate-400 hover:text-pink-500 transition-colors"
+                      className="flex-shrink-0 transition-transform hover:scale-110"
                     >
                       {obj.isCompleted ? (
-                        <CheckSquare className="w-5 h-5 text-pink-500" />
+                        <CheckSquare
+                          className="w-5 h-5"
+                          style={{ color: "var(--accent-magenta)" }}
+                        />
                       ) : (
-                        <Square className="w-5 h-5" />
+                        <Square
+                          className="w-5 h-5"
+                          style={{ color: "var(--text-muted)" }}
+                        />
                       )}
                     </button>
                     <span
-                      className={`text-sm truncate ${
-                        obj.isCompleted
-                          ? "line-through text-slate-400"
-                          : "text-slate-700 dark:text-slate-200"
-                      }`}
+                      className={`text-sm truncate ${obj.isCompleted ? "line-through" : ""}`}
+                      style={{
+                        color: obj.isCompleted ? "var(--text-muted)" : "var(--text-secondary)",
+                      }}
                     >
                       {obj.text}
                     </span>
                   </div>
                   <button
                     onClick={() => onDeleteObjective(obj.id)}
-                    className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 transition-opacity"
+                    className="opacity-0 group-hover:opacity-100 p-1 rounded transition-all hover:scale-110"
+                    style={{ color: "var(--status-error)" }}
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -466,22 +600,29 @@ const Dashboard: React.FC<DashboardProps> = ({
             )}
           </div>
 
-          <form
-            onSubmit={handleAddObjectiveSubmit}
-            className="relative mt-auto"
-          >
+          {/* Add Task Form */}
+          <form onSubmit={handleAddObjectiveSubmit} className="relative mt-auto">
             <input
               type="text"
               value={newObjective}
               onChange={(e) => setNewObjective(e.target.value)}
               placeholder="Nueva tarea..."
-              className="w-full pl-4 pr-10 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-2 focus:ring-primary-500 outline-none text-sm"
+              className="w-full pl-4 pr-12 py-3 rounded-xl text-sm outline-none transition-all"
+              style={{
+                background: "var(--bg-elevated)",
+                border: "1px solid var(--glass-border)",
+                color: "var(--text-primary)",
+              }}
             />
             <button
               type="submit"
-              className="absolute right-2 top-1/2 transform -translate-y-1/2 text-primary-600 dark:text-primary-400 hover:scale-110 transition-transform"
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-lg flex items-center justify-center transition-all hover:scale-110"
+              style={{
+                background: "var(--accent-magenta)",
+                color: "var(--bg-base)",
+              }}
             >
-              <Plus className="w-5 h-5" />
+              <Plus className="w-4 h-4" />
             </button>
           </form>
         </div>
@@ -490,76 +631,119 @@ const Dashboard: React.FC<DashboardProps> = ({
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Weekly Activity */}
-        <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-          <h3 className="text-lg font-semibold mb-4 flex items-center">
-            <TrendingUp className="w-5 h-5 mr-2 text-primary-500" /> Actividad
-            Semanal (hrs)
+        <div
+          className="glass-card p-6 animate-fade-in-up"
+          style={{ animationDelay: "0.5s" }}
+        >
+          <h3
+            className="text-lg font-semibold mb-6 flex items-center gap-2"
+            style={{ color: "var(--text-primary)" }}
+          >
+            <div
+              className="w-8 h-8 rounded-lg flex items-center justify-center"
+              style={{ background: "rgba(139, 92, 246, 0.1)" }}
+            >
+              <TrendingUp className="w-4 h-4" style={{ color: "var(--accent-violet)" }} />
+            </div>
+            Actividad Semanal
           </h3>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={weeklyData}>
                 <XAxis
                   dataKey="day"
-                  stroke="#94a3b8"
+                  stroke="var(--text-muted)"
                   fontSize={12}
                   tickLine={false}
                   axisLine={false}
                 />
                 <YAxis
-                  stroke="#94a3b8"
+                  stroke="var(--text-muted)"
                   fontSize={12}
                   tickLine={false}
                   axisLine={false}
                 />
                 <Tooltip
                   contentStyle={{
-                    borderRadius: "8px",
-                    border: "none",
-                    boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
+                    borderRadius: "12px",
+                    border: "1px solid var(--glass-border)",
+                    background: "var(--bg-surface)",
+                    boxShadow: "0 10px 40px rgba(0, 0, 0, 0.4)",
                   }}
-                  cursor={{ fill: "transparent" }}
-                  formatter={(value: number) => [
-                    formatHoursLong(value),
-                    "Tiempo",
-                  ]}
+                  labelStyle={{ color: "var(--text-primary)" }}
+                  itemStyle={{ color: "var(--accent-cyan)" }}
+                  cursor={{ fill: "rgba(0, 245, 255, 0.1)" }}
+                  formatter={(value: number) => [formatHoursLong(value), "Tiempo"]}
                 />
-                <Bar dataKey="hours" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
+                <Bar
+                  dataKey="hours"
+                  fill="var(--accent-cyan)"
+                  radius={[6, 6, 0, 0]}
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
         {/* Subject Distribution */}
-        <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-          <h3 className="text-lg font-semibold mb-4">Por Categoría (hrs)</h3>
+        <div
+          className="glass-card p-6 animate-fade-in-up"
+          style={{ animationDelay: "0.6s" }}
+        >
+          <h3
+            className="text-lg font-semibold mb-6"
+            style={{ color: "var(--text-primary)" }}
+          >
+            Distribución por Categoría
+          </h3>
           <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={subjectData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={80}
-                  paddingAngle={5}
-                  dataKey="value"
-                >
-                  {subjectData.map((entry, index) => (
-                    <Cell
-                      key={`cell-${index}`}
-                      fill={COLORS[index % COLORS.length]}
-                    />
-                  ))}
-                </Pie>
-                <Tooltip
-                  formatter={(value: number) => [
-                    formatHoursLong(value),
-                    "Tiempo",
-                  ]}
-                />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
+            {subjectData.length === 0 ? (
+              <div
+                className="h-full flex flex-col items-center justify-center"
+                style={{ color: "var(--text-muted)" }}
+              >
+                <Layers className="w-12 h-12 mb-3 opacity-30" />
+                <p className="text-sm">Sin datos aún</p>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={subjectData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={85}
+                    paddingAngle={4}
+                    dataKey="value"
+                  >
+                    {subjectData.map((entry, index) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={COLORS[index % COLORS.length]}
+                        stroke="transparent"
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{
+                      borderRadius: "12px",
+                      border: "1px solid var(--glass-border)",
+                      background: "var(--bg-surface)",
+                      boxShadow: "0 10px 40px rgba(0, 0, 0, 0.4)",
+                    }}
+                    labelStyle={{ color: "var(--text-primary)" }}
+                    formatter={(value: number) => [formatHoursLong(value), "Tiempo"]}
+                  />
+                  <Legend
+                    wrapperStyle={{ color: "var(--text-secondary)" }}
+                    formatter={(value) => (
+                      <span style={{ color: "var(--text-secondary)" }}>{value}</span>
+                    )}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
       </div>

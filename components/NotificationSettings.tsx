@@ -7,30 +7,25 @@ import {
   Vibrate,
   X,
   CheckCircle,
-  Palette,
   Check,
   Loader2,
+  Settings,
+  Zap,
 } from "lucide-react";
 import {
   NotificationSettings as NotificationSettingsType,
-  ColorPaletteId,
 } from "../types";
 import { notificationService } from "../services/notificationService";
 import { audioService } from "../services/audioService";
-import { themeService, COLOR_PALETTES } from "../services/themeService";
 
 interface SettingsProps {
   settings: NotificationSettingsType;
   onSettingsChange: (settings: NotificationSettingsType) => void;
-  currentPalette: ColorPaletteId;
-  onPaletteChange: (palette: ColorPaletteId) => void;
 }
 
 const SettingsComponent: React.FC<SettingsProps> = ({
   settings,
   onSettingsChange,
-  currentPalette,
-  onPaletteChange,
 }) => {
   const [permissionStatus, setPermissionStatus] = useState<string>("default");
   const [showPermissionBanner, setShowPermissionBanner] = useState(false);
@@ -39,18 +34,16 @@ const SettingsComponent: React.FC<SettingsProps> = ({
   const [testingBreakEnd, setTestingBreakEnd] = useState(false);
   const [testingCycleComplete, setTestingCycleComplete] = useState(false);
   const [diagnostics, setDiagnostics] = useState({
-    notificationPermission: 'default',
+    notificationPermission: "default",
     vibrationSupported: false,
-    audioContextState: 'unknown',
+    audioContextState: "unknown",
     serviceWorkerRegistered: false,
   });
 
   useEffect(() => {
-    // Verificar estado de permisos al montar
     const status = notificationService.getPermissionStatus();
     setPermissionStatus(status);
 
-    // Mostrar banner si los permisos no han sido concedidos
     if (status === "default" && settings.enabled) {
       setShowPermissionBanner(true);
     }
@@ -64,9 +57,8 @@ const SettingsComponent: React.FC<SettingsProps> = ({
       setShowPermissionBanner(false);
       onSettingsChange({ ...settings, enabled: true });
 
-      // Mostrar notificación de prueba
       await notificationService.show({
-        title: "🎉 ¡Notificaciones Activadas!",
+        title: "Notificaciones Activadas!",
         body: "Recibirás alertas cuando terminen tus sesiones de estudio.",
       });
     }
@@ -74,14 +66,12 @@ const SettingsComponent: React.FC<SettingsProps> = ({
 
   const handleToggleNotifications = async () => {
     if (!settings.enabled) {
-      // Intentar activar - solicitar permisos si es necesario
       if (permissionStatus !== "granted") {
         await handleRequestPermission();
       } else {
         onSettingsChange({ ...settings, enabled: true });
       }
     } else {
-      // Desactivar
       onSettingsChange({ ...settings, enabled: false });
     }
   };
@@ -114,12 +104,16 @@ const SettingsComponent: React.FC<SettingsProps> = ({
   const handleTestWorkEnd = async () => {
     setTestingWorkEnd(true);
 
-    if (settings.enabled && settings.workEndEnabled && permissionStatus === 'granted') {
-      await notificationService.notifyWorkPeriodEnd('Pomodoro', 300);
+    if (
+      settings.enabled &&
+      settings.workEndEnabled &&
+      permissionStatus === "granted"
+    ) {
+      await notificationService.notifyWorkPeriodEnd("Pomodoro", 300);
     }
 
     if (settings.soundEnabled) {
-      await audioService.play('work-end');
+      await audioService.play("work-end");
     }
 
     if (settings.vibrationEnabled) {
@@ -132,12 +126,16 @@ const SettingsComponent: React.FC<SettingsProps> = ({
   const handleTestBreakEnd = async () => {
     setTestingBreakEnd(true);
 
-    if (settings.enabled && settings.breakEndEnabled && permissionStatus === 'granted') {
+    if (
+      settings.enabled &&
+      settings.breakEndEnabled &&
+      permissionStatus === "granted"
+    ) {
       await notificationService.notifyBreakPeriodEnd();
     }
 
     if (settings.soundEnabled) {
-      await audioService.play('break-end');
+      await audioService.play("break-end");
     }
 
     if (settings.vibrationEnabled) {
@@ -150,12 +148,16 @@ const SettingsComponent: React.FC<SettingsProps> = ({
   const handleTestCycleComplete = async () => {
     setTestingCycleComplete(true);
 
-    if (settings.enabled && settings.cycleCompleteEnabled && permissionStatus === 'granted') {
+    if (
+      settings.enabled &&
+      settings.cycleCompleteEnabled &&
+      permissionStatus === "granted"
+    ) {
       await notificationService.notifyCycleComplete(5, 3, 12);
     }
 
     if (settings.soundEnabled) {
-      await audioService.play('cycle-complete');
+      await audioService.play("cycle-complete");
     }
 
     if (settings.vibrationEnabled) {
@@ -166,12 +168,14 @@ const SettingsComponent: React.FC<SettingsProps> = ({
   };
 
   const updateDiagnostics = async () => {
-    const swRegistration = 'serviceWorker' in navigator && navigator.serviceWorker.controller;
+    const swRegistration =
+      "serviceWorker" in navigator && navigator.serviceWorker.controller;
 
     setDiagnostics({
       notificationPermission: notificationService.getPermissionStatus(),
       vibrationSupported: audioService.isVibrationSupported(),
-      audioContextState: (audioService as any).audioContext?.state || 'unknown',
+      audioContextState:
+        (audioService as any).audioContext?.state || "unknown",
       serviceWorkerRegistered: !!swRegistration,
     });
   };
@@ -180,25 +184,134 @@ const SettingsComponent: React.FC<SettingsProps> = ({
     updateDiagnostics();
   }, []);
 
+  // Toggle Switch component
+  const ToggleSwitch = ({
+    enabled,
+    onToggle,
+    color = "cyan",
+  }: {
+    enabled: boolean;
+    onToggle: () => void;
+    color?: "cyan" | "magenta" | "lime" | "violet";
+  }) => {
+    const colors = {
+      cyan: {
+        bg: "var(--accent-cyan)",
+        glow: "var(--glow-cyan)",
+      },
+      magenta: {
+        bg: "var(--accent-magenta)",
+        glow: "var(--glow-magenta)",
+      },
+      lime: {
+        bg: "var(--accent-lime)",
+        glow: "var(--glow-lime)",
+      },
+      violet: {
+        bg: "var(--accent-violet)",
+        glow: "0 0 20px rgba(139, 92, 246, 0.4)",
+      },
+    };
+
+    return (
+      <button
+        onClick={onToggle}
+        className="relative w-14 h-7 rounded-full transition-all duration-300"
+        style={{
+          background: enabled ? colors[color].bg : "var(--bg-elevated)",
+          boxShadow: enabled ? colors[color].glow : "none",
+        }}
+      >
+        <span
+          className="absolute top-1 w-5 h-5 rounded-full transition-all duration-300"
+          style={{
+            background: enabled ? "var(--bg-base)" : "var(--text-muted)",
+            left: enabled ? "calc(100% - 24px)" : "4px",
+            boxShadow: enabled ? "none" : "0 2px 4px rgba(0,0,0,0.3)",
+          }}
+        />
+      </button>
+    );
+  };
+
+  // Custom Checkbox component
+  const CustomCheckbox = ({
+    checked,
+    onChange,
+    label,
+  }: {
+    checked: boolean;
+    onChange: (checked: boolean) => void;
+    label: string;
+  }) => (
+    <label className="flex items-center gap-3 cursor-pointer group">
+      <div
+        className="relative w-5 h-5 rounded-md transition-all duration-200"
+        style={{
+          background: checked
+            ? "var(--accent-cyan)"
+            : "var(--bg-elevated)",
+          border: checked
+            ? "none"
+            : "1px solid var(--glass-border)",
+          boxShadow: checked ? "var(--glow-cyan)" : "none",
+        }}
+        onClick={() => onChange(!checked)}
+      >
+        {checked && (
+          <Check
+            className="w-4 h-4 absolute top-0.5 left-0.5"
+            style={{ color: "var(--bg-base)" }}
+          />
+        )}
+      </div>
+      <span
+        className="text-sm transition-colors group-hover:text-white"
+        style={{ color: "var(--text-secondary)" }}
+      >
+        {label}
+      </span>
+    </label>
+  );
+
   return (
-    <div className="space-y-4">
-      {/* Banner de solicitud de permisos */}
+    <div className="space-y-6 max-w-3xl mx-auto pb-20">
+      {/* Header */}
+      {/* Permission Banner */}
       {showPermissionBanner && permissionStatus === "default" && (
-        <div className="bg-slate-800 dark:bg-slate-800 border border-slate-700 dark:border-slate-700 rounded-lg p-4 mb-4">
+        <div
+          className="glass-card p-5 animate-fade-in-up"
+          style={{
+            background:
+              "linear-gradient(135deg, rgba(0, 245, 255, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%)",
+            border: "1px solid rgba(0, 245, 255, 0.3)",
+          }}
+        >
           <div className="flex items-start justify-between">
-            <div className="flex items-start space-x-3 flex-1">
-              <Bell className="w-5 h-5 text-primary-400 mt-0.5" />
+            <div className="flex items-start gap-4 flex-1">
+              <div
+                className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                style={{ background: "rgba(0, 245, 255, 0.2)" }}
+              >
+                <Bell className="w-5 h-5" style={{ color: "var(--accent-cyan)" }} />
+              </div>
               <div className="flex-1">
-                <h4 className="font-semibold text-white mb-1">
+                <h4
+                  className="font-semibold mb-1"
+                  style={{ color: "var(--text-primary)" }}
+                >
                   ¿Activar notificaciones?
                 </h4>
-                <p className="text-sm text-slate-300 mb-3">
+                <p
+                  className="text-sm mb-4"
+                  style={{ color: "var(--text-secondary)" }}
+                >
                   Recibe alertas cuando terminen tus sesiones de trabajo y
                   descanso, incluso si la app está en segundo plano.
                 </p>
                 <button
                   onClick={handleRequestPermission}
-                  className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium transition-colors"
+                  className="glow-btn px-5 py-2.5 rounded-xl text-sm font-semibold transition-all hover:scale-105"
                 >
                   Activar Notificaciones
                 </button>
@@ -206,7 +319,8 @@ const SettingsComponent: React.FC<SettingsProps> = ({
             </div>
             <button
               onClick={() => setShowPermissionBanner(false)}
-              className="text-slate-400 hover:text-slate-200"
+              className="p-2 rounded-lg transition-all hover:bg-white/10"
+              style={{ color: "var(--text-muted)" }}
             >
               <X className="w-5 h-5" />
             </button>
@@ -214,16 +328,30 @@ const SettingsComponent: React.FC<SettingsProps> = ({
         </div>
       )}
 
-      {/* Notificaciones bloqueadas */}
+      {/* Blocked Notifications Banner */}
       {permissionStatus === "denied" && settings.enabled && (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-4">
-          <div className="flex items-start space-x-3">
-            <BellOff className="w-5 h-5 text-red-600 dark:text-red-400 mt-0.5" />
+        <div
+          className="glass-card p-5 animate-fade-in-up"
+          style={{
+            background: "rgba(239, 68, 68, 0.1)",
+            border: "1px solid rgba(239, 68, 68, 0.3)",
+          }}
+        >
+          <div className="flex items-start gap-4">
+            <div
+              className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{ background: "rgba(239, 68, 68, 0.2)" }}
+            >
+              <BellOff className="w-5 h-5" style={{ color: "var(--status-error)" }} />
+            </div>
             <div>
-              <h4 className="font-semibold text-slate-800 dark:text-white mb-1">
+              <h4
+                className="font-semibold mb-1"
+                style={{ color: "var(--text-primary)" }}
+              >
                 Notificaciones bloqueadas
               </h4>
-              <p className="text-sm text-slate-600 dark:text-slate-300">
+              <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
                 Has bloqueado las notificaciones. Para activarlas, ve a la
                 configuración de tu navegador.
               </p>
@@ -232,151 +360,167 @@ const SettingsComponent: React.FC<SettingsProps> = ({
         </div>
       )}
 
-      {/* Configuración de Notificaciones */}
-      <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-4">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center space-x-3">
-            {settings.enabled ? (
-              <Bell className="w-5 h-5 text-primary-600 dark:text-primary-400" />
-            ) : (
-              <BellOff className="w-5 h-5 text-slate-400" />
-            )}
+      {/* Notifications Section */}
+      <div
+        className="glass-card p-6 animate-fade-in-up"
+        style={{ animationDelay: "0.1s" }}
+      >
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-4">
+            <div
+              className="w-10 h-10 rounded-xl flex items-center justify-center"
+              style={{
+                background: settings.enabled
+                  ? "rgba(0, 245, 255, 0.1)"
+                  : "var(--bg-elevated)",
+              }}
+            >
+              {settings.enabled ? (
+                <Bell className="w-5 h-5" style={{ color: "var(--accent-cyan)" }} />
+              ) : (
+                <BellOff className="w-5 h-5" style={{ color: "var(--text-muted)" }} />
+              )}
+            </div>
             <div>
-              <h3 className="font-semibold text-slate-800 dark:text-white">
+              <h3
+                className="font-semibold text-base"
+                style={{ color: "var(--text-primary)" }}
+              >
                 Notificaciones
               </h3>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
+              <p className="text-sm" style={{ color: "var(--text-muted)" }}>
                 {settings.enabled ? "Activadas" : "Desactivadas"}
               </p>
             </div>
           </div>
-          <button
-            onClick={handleToggleNotifications}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-              settings.enabled
-                ? "bg-primary-600"
-                : "bg-slate-300 dark:bg-slate-700"
-            }`}
-          >
-            <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                settings.enabled ? "translate-x-6" : "translate-x-1"
-              }`}
-            />
-          </button>
+          <ToggleSwitch
+            enabled={settings.enabled}
+            onToggle={handleToggleNotifications}
+          />
         </div>
 
         {settings.enabled && (
-          <div className="space-y-3 pl-8 border-l-2 border-primary-200 dark:border-primary-800 ml-2">
-            <label className="flex items-center space-x-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={settings.workEndEnabled}
-                onChange={(e) =>
-                  onSettingsChange({
-                    ...settings,
-                    workEndEnabled: e.target.checked,
-                  })
-                }
-                className="rounded text-primary-600 focus:ring-primary-500"
-              />
-              <span className="text-sm text-slate-600 dark:text-slate-300">
-                Fin de periodo de trabajo
-              </span>
-            </label>
-
-            <label className="flex items-center space-x-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={settings.breakEndEnabled}
-                onChange={(e) =>
-                  onSettingsChange({
-                    ...settings,
-                    breakEndEnabled: e.target.checked,
-                  })
-                }
-                className="rounded text-primary-600 focus:ring-primary-500"
-              />
-              <span className="text-sm text-slate-600 dark:text-slate-300">
-                Fin de periodo de descanso
-              </span>
-            </label>
-
-            <label className="flex items-center space-x-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={settings.cycleCompleteEnabled}
-                onChange={(e) =>
-                  onSettingsChange({
-                    ...settings,
-                    cycleCompleteEnabled: e.target.checked,
-                  })
-                }
-                className="rounded text-primary-600 focus:ring-primary-500"
-              />
-              <span className="text-sm text-slate-600 dark:text-slate-300">
-                Ciclo completado
-              </span>
-            </label>
+          <div
+            className="space-y-4 pt-5"
+            style={{ borderTop: "1px solid var(--glass-border)" }}
+          >
+            <CustomCheckbox
+              checked={settings.workEndEnabled}
+              onChange={(checked) =>
+                onSettingsChange({ ...settings, workEndEnabled: checked })
+              }
+              label="Fin de periodo de trabajo"
+            />
+            <CustomCheckbox
+              checked={settings.breakEndEnabled}
+              onChange={(checked) =>
+                onSettingsChange({ ...settings, breakEndEnabled: checked })
+              }
+              label="Fin de periodo de descanso"
+            />
+            <CustomCheckbox
+              checked={settings.cycleCompleteEnabled}
+              onChange={(checked) =>
+                onSettingsChange({ ...settings, cycleCompleteEnabled: checked })
+              }
+              label="Ciclo completado"
+            />
           </div>
         )}
       </div>
 
-      {/* Configuración de Sonido */}
-      <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-4">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center space-x-3">
-            {settings.soundEnabled ? (
-              <Volume2 className="w-5 h-5 text-primary-600 dark:text-primary-400" />
-            ) : (
-              <VolumeX className="w-5 h-5 text-slate-400" />
-            )}
+      {/* Sound Section */}
+      <div
+        className="glass-card p-6 animate-fade-in-up"
+        style={{ animationDelay: "0.15s" }}
+      >
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-4">
+            <div
+              className="w-10 h-10 rounded-xl flex items-center justify-center"
+              style={{
+                background: settings.soundEnabled
+                  ? "rgba(255, 0, 255, 0.1)"
+                  : "var(--bg-elevated)",
+              }}
+            >
+              {settings.soundEnabled ? (
+                <Volume2
+                  className="w-5 h-5"
+                  style={{ color: "var(--accent-magenta)" }}
+                />
+              ) : (
+                <VolumeX className="w-5 h-5" style={{ color: "var(--text-muted)" }} />
+              )}
+            </div>
             <div>
-              <h3 className="font-semibold text-slate-800 dark:text-white">
+              <h3
+                className="font-semibold text-base"
+                style={{ color: "var(--text-primary)" }}
+              >
                 Sonido
               </h3>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
+              <p className="text-sm" style={{ color: "var(--text-muted)" }}>
                 {settings.soundEnabled ? "Activado" : "Desactivado"}
               </p>
             </div>
           </div>
-          <button
-            onClick={handleToggleSound}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-              settings.soundEnabled
-                ? "bg-primary-600"
-                : "bg-slate-300 dark:bg-slate-700"
-            }`}
-          >
-            <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                settings.soundEnabled ? "translate-x-6" : "translate-x-1"
-              }`}
-            />
-          </button>
+          <ToggleSwitch
+            enabled={settings.soundEnabled}
+            onToggle={handleToggleSound}
+            color="magenta"
+          />
         </div>
 
         {settings.soundEnabled && (
-          <div className="space-y-4 pl-8 border-l-2 border-primary-200 dark:border-primary-800 ml-2">
+          <div
+            className="space-y-5 pt-5"
+            style={{ borderTop: "1px solid var(--glass-border)" }}
+          >
             <div>
-              <label className="text-sm text-slate-600 dark:text-slate-300 mb-2 block">
-                Volumen: {Math.round(settings.soundVolume * 100)}%
-              </label>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.1"
-                value={settings.soundVolume}
-                onChange={handleVolumeChange}
-                className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-primary-600"
-              />
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm" style={{ color: "var(--text-secondary)" }}>
+                  Volumen
+                </span>
+                <span
+                  className="text-sm font-mono px-2 py-0.5 rounded-md"
+                  style={{
+                    background: "var(--bg-elevated)",
+                    color: "var(--accent-magenta)",
+                  }}
+                >
+                  {Math.round(settings.soundVolume * 100)}%
+                </span>
+              </div>
+              <div className="relative">
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.1"
+                  value={settings.soundVolume}
+                  onChange={handleVolumeChange}
+                  className="w-full h-2 rounded-full appearance-none cursor-pointer"
+                  style={{
+                    background: `linear-gradient(to right, var(--accent-magenta) 0%, var(--accent-magenta) ${
+                      settings.soundVolume * 100
+                    }%, var(--bg-elevated) ${settings.soundVolume * 100}%, var(--bg-elevated) 100%)`,
+                  }}
+                />
+              </div>
             </div>
 
             <button
               onClick={handleTestSound}
               disabled={testingSound}
-              className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center space-x-2"
+              className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-sm font-medium transition-all hover:scale-[1.02] disabled:opacity-50"
+              style={{
+                background: "var(--bg-elevated)",
+                color: testingSound
+                  ? "var(--accent-lime)"
+                  : "var(--text-secondary)",
+                border: "1px solid var(--glass-border)",
+              }}
             >
               {testingSound ? (
                 <>
@@ -394,78 +538,114 @@ const SettingsComponent: React.FC<SettingsProps> = ({
         )}
       </div>
 
-      {/* Configuración de Vibración */}
-      {audioService.isVibrationSupported() ? (
-        <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <Vibrate className="w-5 h-5 text-primary-600 dark:text-primary-400" />
-              <div>
-                <h3 className="font-semibold text-slate-800 dark:text-white">
-                  Vibración
-                </h3>
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  {settings.vibrationEnabled ? "Activada" : "Desactivada"}
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={handleToggleVibration}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                settings.vibrationEnabled
-                  ? "bg-primary-600"
-                  : "bg-slate-300 dark:bg-slate-700"
-              }`}
+      {/* Vibration Section */}
+      <div
+        className="glass-card p-6 animate-fade-in-up"
+        style={{ animationDelay: "0.2s" }}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div
+              className="w-10 h-10 rounded-xl flex items-center justify-center"
+              style={{
+                background:
+                  audioService.isVibrationSupported() && settings.vibrationEnabled
+                    ? "rgba(0, 255, 136, 0.1)"
+                    : "var(--bg-elevated)",
+              }}
             >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                  settings.vibrationEnabled ? "translate-x-6" : "translate-x-1"
-                }`}
+              <Vibrate
+                className="w-5 h-5"
+                style={{
+                  color: audioService.isVibrationSupported()
+                    ? settings.vibrationEnabled
+                      ? "var(--accent-lime)"
+                      : "var(--text-muted)"
+                    : "var(--text-dim)",
+                }}
               />
-            </button>
-          </div>
-          {settings.vibrationEnabled && (
-            <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-700">
-              <button
-                onClick={() => audioService.vibrate([200, 100, 200])}
-                className="w-full py-2 px-4 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-sm font-medium transition-colors flex items-center justify-center space-x-2"
-              >
-                <Vibrate className="w-4 h-4" />
-                <span>Probar Vibración</span>
-              </button>
             </div>
-          )}
-        </div>
-      ) : (
-        <div className="bg-slate-100 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
-          <div className="flex items-center space-x-3">
-            <Vibrate className="w-5 h-5 text-slate-400 dark:text-slate-500" />
             <div>
-              <h3 className="font-semibold text-slate-500 dark:text-slate-400">
+              <h3
+                className="font-semibold text-base"
+                style={{
+                  color: audioService.isVibrationSupported()
+                    ? "var(--text-primary)"
+                    : "var(--text-muted)",
+                }}
+              >
                 Vibración
               </h3>
-              <p className="text-sm text-slate-400 dark:text-slate-500">
-                No disponible en este dispositivo
-                {/iPad|iPhone|iPod/.test(navigator.userAgent) && (
-                  <span className="block mt-1">
-                    (iOS/Safari no soporta vibración)
-                  </span>
+              <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+                {audioService.isVibrationSupported() ? (
+                  settings.vibrationEnabled ? (
+                    "Activada"
+                  ) : (
+                    "Desactivada"
+                  )
+                ) : (
+                  <>
+                    No disponible
+                    {/iPad|iPhone|iPod/.test(navigator.userAgent) && (
+                      <span className="block text-xs mt-0.5">
+                        (iOS/Safari no soporta vibración)
+                      </span>
+                    )}
+                  </>
                 )}
               </p>
             </div>
           </div>
+          {audioService.isVibrationSupported() && (
+            <ToggleSwitch
+              enabled={settings.vibrationEnabled}
+              onToggle={handleToggleVibration}
+              color="lime"
+            />
+          )}
         </div>
-      )}
 
-      {/* Sección de Pruebas */}
-      <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-4">
-        <div className="flex items-center space-x-3 mb-4">
-          <CheckCircle className="w-5 h-5 text-primary-600 dark:text-primary-400" />
+        {audioService.isVibrationSupported() && settings.vibrationEnabled && (
+          <div
+            className="pt-5 mt-5"
+            style={{ borderTop: "1px solid var(--glass-border)" }}
+          >
+            <button
+              onClick={() => audioService.vibrate([200, 100, 200])}
+              className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-sm font-medium transition-all hover:scale-[1.02]"
+              style={{
+                background: "var(--bg-elevated)",
+                color: "var(--text-secondary)",
+                border: "1px solid var(--glass-border)",
+              }}
+            >
+              <Vibrate className="w-4 h-4" />
+              <span>Probar Vibración</span>
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Test Notifications Section */}
+      <div
+        className="glass-card p-6 animate-fade-in-up"
+        style={{ animationDelay: "0.25s" }}
+      >
+        <div className="flex items-center gap-4 mb-5">
+          <div
+            className="w-10 h-10 rounded-xl flex items-center justify-center"
+            style={{ background: "rgba(139, 92, 246, 0.1)" }}
+          >
+            <Zap className="w-5 h-5" style={{ color: "var(--accent-violet)" }} />
+          </div>
           <div>
-            <h3 className="font-semibold text-slate-800 dark:text-white">
+            <h3
+              className="font-semibold text-base"
+              style={{ color: "var(--text-primary)" }}
+            >
               Probar Notificaciones
             </h3>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
+            <p className="text-sm" style={{ color: "var(--text-muted)" }}>
               Verifica que todo funcione correctamente
             </p>
           </div>
@@ -475,160 +655,193 @@ const SettingsComponent: React.FC<SettingsProps> = ({
           <button
             onClick={handleTestWorkEnd}
             disabled={testingWorkEnd}
-            className="w-full px-4 py-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-between"
+            className="flex items-center justify-between w-full py-3.5 px-4 rounded-xl text-sm font-medium transition-all hover:scale-[1.01] disabled:opacity-50"
+            style={{
+              background: "var(--bg-elevated)",
+              color: "var(--text-secondary)",
+              border: "1px solid var(--glass-border)",
+            }}
           >
             <span>Probar Fin de Trabajo</span>
-            {testingWorkEnd && <Loader2 className="w-4 h-4 animate-spin" />}
+            {testingWorkEnd ? (
+              <Loader2
+                className="w-4 h-4 animate-spin"
+                style={{ color: "var(--accent-cyan)" }}
+              />
+            ) : (
+              <div
+                className="w-2 h-2 rounded-full"
+                style={{ background: "var(--accent-cyan)" }}
+              />
+            )}
           </button>
 
           <button
             onClick={handleTestBreakEnd}
             disabled={testingBreakEnd}
-            className="w-full px-4 py-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-between"
+            className="flex items-center justify-between w-full py-3.5 px-4 rounded-xl text-sm font-medium transition-all hover:scale-[1.01] disabled:opacity-50"
+            style={{
+              background: "var(--bg-elevated)",
+              color: "var(--text-secondary)",
+              border: "1px solid var(--glass-border)",
+            }}
           >
             <span>Probar Fin de Descanso</span>
-            {testingBreakEnd && <Loader2 className="w-4 h-4 animate-spin" />}
+            {testingBreakEnd ? (
+              <Loader2
+                className="w-4 h-4 animate-spin"
+                style={{ color: "var(--accent-lime)" }}
+              />
+            ) : (
+              <div
+                className="w-2 h-2 rounded-full"
+                style={{ background: "var(--accent-lime)" }}
+              />
+            )}
           </button>
 
           <button
             onClick={handleTestCycleComplete}
             disabled={testingCycleComplete}
-            className="w-full px-4 py-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-between"
+            className="flex items-center justify-between w-full py-3.5 px-4 rounded-xl text-sm font-medium transition-all hover:scale-[1.01] disabled:opacity-50"
+            style={{
+              background: "var(--bg-elevated)",
+              color: "var(--text-secondary)",
+              border: "1px solid var(--glass-border)",
+            }}
           >
             <span>Probar Ciclo Completado</span>
-            {testingCycleComplete && <Loader2 className="w-4 h-4 animate-spin" />}
+            {testingCycleComplete ? (
+              <Loader2
+                className="w-4 h-4 animate-spin"
+                style={{ color: "var(--accent-magenta)" }}
+              />
+            ) : (
+              <div
+                className="w-2 h-2 rounded-full"
+                style={{ background: "var(--accent-magenta)" }}
+              />
+            )}
           </button>
         </div>
       </div>
 
-      {/* Panel de Diagnóstico */}
-      <div className="bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="font-semibold text-slate-700 dark:text-slate-300 text-sm">
-            Información del Sistema
-          </h3>
+      {/* System Diagnostics Section */}
+      <div
+        className="glass-card p-6 animate-fade-in-up"
+        style={{
+          animationDelay: "0.35s",
+          background: "rgba(255, 255, 255, 0.02)",
+        }}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <Settings
+              className="w-4 h-4"
+              style={{ color: "var(--text-muted)" }}
+            />
+            <h3
+              className="font-semibold text-sm"
+              style={{ color: "var(--text-muted)" }}
+            >
+              Información del Sistema
+            </h3>
+          </div>
           <button
             onClick={updateDiagnostics}
-            className="text-xs text-primary-600 dark:text-primary-400 hover:underline"
+            className="text-xs px-3 py-1 rounded-lg transition-all hover:bg-white/5"
+            style={{ color: "var(--accent-cyan)" }}
           >
             Actualizar
           </button>
         </div>
 
-        <div className="space-y-2 text-xs">
-          <div className="flex justify-between">
-            <span className="text-slate-600 dark:text-slate-400">Permisos:</span>
-            <span className={`font-medium ${
-              diagnostics.notificationPermission === 'granted'
-                ? 'text-green-600 dark:text-green-400'
-                : diagnostics.notificationPermission === 'denied'
-                ? 'text-red-600 dark:text-red-400'
-                : 'text-amber-600 dark:text-amber-400'
-            }`}>
+        <div className="grid grid-cols-2 gap-4">
+          <div
+            className="p-3 rounded-xl"
+            style={{ background: "var(--bg-elevated)" }}
+          >
+            <span
+              className="text-xs block mb-1"
+              style={{ color: "var(--text-dim)" }}
+            >
+              Permisos
+            </span>
+            <span
+              className="text-sm font-medium"
+              style={{
+                color:
+                  diagnostics.notificationPermission === "granted"
+                    ? "var(--accent-lime)"
+                    : diagnostics.notificationPermission === "denied"
+                    ? "var(--status-error)"
+                    : "#fbbf24",
+              }}
+            >
               {diagnostics.notificationPermission}
             </span>
           </div>
 
-          <div className="flex justify-between">
-            <span className="text-slate-600 dark:text-slate-400">Vibración:</span>
-            <span className={`font-medium ${
-              diagnostics.vibrationSupported
-                ? 'text-green-600 dark:text-green-400'
-                : 'text-slate-500 dark:text-slate-500'
-            }`}>
-              {diagnostics.vibrationSupported ? 'Sí' : 'No'}
+          <div
+            className="p-3 rounded-xl"
+            style={{ background: "var(--bg-elevated)" }}
+          >
+            <span
+              className="text-xs block mb-1"
+              style={{ color: "var(--text-dim)" }}
+            >
+              Vibración
+            </span>
+            <span
+              className="text-sm font-medium"
+              style={{
+                color: diagnostics.vibrationSupported
+                  ? "var(--accent-lime)"
+                  : "var(--text-muted)",
+              }}
+            >
+              {diagnostics.vibrationSupported ? "Sí" : "No"}
             </span>
           </div>
 
-          <div className="flex justify-between">
-            <span className="text-slate-600 dark:text-slate-400">Audio:</span>
-            <span className="font-medium text-slate-700 dark:text-slate-300">
+          <div
+            className="p-3 rounded-xl"
+            style={{ background: "var(--bg-elevated)" }}
+          >
+            <span
+              className="text-xs block mb-1"
+              style={{ color: "var(--text-dim)" }}
+            >
+              Audio
+            </span>
+            <span
+              className="text-sm font-medium"
+              style={{ color: "var(--text-secondary)" }}
+            >
               {diagnostics.audioContextState}
             </span>
           </div>
 
-          <div className="flex justify-between">
-            <span className="text-slate-600 dark:text-slate-400">Service Worker:</span>
-            <span className={`font-medium ${
-              diagnostics.serviceWorkerRegistered
-                ? 'text-green-600 dark:text-green-400'
-                : 'text-slate-500 dark:text-slate-500'
-            }`}>
-              {diagnostics.serviceWorkerRegistered ? 'Activo' : 'Inactivo'}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Configuración de Paleta de Colores */}
-      <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-4">
-        <div className="flex items-center space-x-3 mb-4">
-          <Palette className="w-5 h-5 text-primary-600 dark:text-primary-400" />
-          <div>
-            <h3 className="font-semibold text-slate-800 dark:text-white">
-              Paleta de Colores
-            </h3>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              Personaliza el aspecto de la aplicación
-            </p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-5 gap-3">
-          {COLOR_PALETTES.map((palette) => (
-            <button
-              key={palette.id}
-              onClick={() => onPaletteChange(palette.id)}
-              className={`relative flex flex-col items-center p-3 rounded-lg border-2 transition-all ${
-                currentPalette === palette.id
-                  ? "border-primary-500 bg-primary-50 dark:bg-primary-900/20"
-                  : "border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600"
-              }`}
-              title={palette.name}
+          <div
+            className="p-3 rounded-xl"
+            style={{ background: "var(--bg-elevated)" }}
+          >
+            <span
+              className="text-xs block mb-1"
+              style={{ color: "var(--text-dim)" }}
             >
-              {/* Color Preview */}
-              <div className="relative w-8 h-8 rounded-full overflow-hidden shadow-sm mb-2">
-                <div
-                  className="absolute inset-0"
-                  style={{
-                    background: `linear-gradient(135deg, ${palette.colors[400]} 0%, ${palette.colors[600]} 100%)`,
-                  }}
-                />
-              </div>
-              <span className="text-xs font-medium text-slate-600 dark:text-slate-300 truncate w-full text-center">
-                {palette.name}
-              </span>
-              {/* Checkmark */}
-              {currentPalette === palette.id && (
-                <div className="absolute -top-1 -right-1 w-5 h-5 bg-primary-500 rounded-full flex items-center justify-center">
-                  <Check className="w-3 h-3 text-white" />
-                </div>
-              )}
-            </button>
-          ))}
-        </div>
-
-        {/* Preview de colores */}
-        <div className="mt-4 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
-          <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">
-            Vista previa:
-          </p>
-          <div className="flex space-x-1">
-            {[400, 500, 600, 700].map((shade) => {
-              const palette = COLOR_PALETTES.find(
-                (p) => p.id === currentPalette
-              );
-              const color =
-                palette?.colors[shade as keyof typeof palette.colors] ||
-                "#8b5cf6";
-              return (
-                <div
-                  key={shade}
-                  className="flex-1 h-6 rounded transition-colors"
-                  style={{ backgroundColor: color }}
-                />
-              );
-            })}
+              Service Worker
+            </span>
+            <span
+              className="text-sm font-medium"
+              style={{
+                color: diagnostics.serviceWorkerRegistered
+                  ? "var(--accent-lime)"
+                  : "var(--text-muted)",
+              }}
+            >
+              {diagnostics.serviceWorkerRegistered ? "Activo" : "Inactivo"}
+            </span>
           </div>
         </div>
       </div>
