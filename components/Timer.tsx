@@ -2,12 +2,17 @@ import React from "react";
 import {
   Play,
   Pause,
-  StopCircle,
+  RotateCcw,
   Save,
   Coffee,
   Brain,
   Target,
   Plus,
+  PictureInPicture2,
+  X,
+  Zap,
+  Tag,
+  History,
 } from "lucide-react";
 import { StudyTechnique, TechniqueConfig } from "../types";
 import TechniqueSelector from "./TechniqueSelector";
@@ -21,11 +26,15 @@ interface TimerProps {
   savedCategories: string[];
   onSubjectChange: (value: string) => void;
   onAddCategory: (value: string) => void;
+  onDeleteCategory: (category: string) => void;
   onTechniqueChange: (technique: StudyTechnique) => void;
   onStart: () => void;
   onPause: () => void;
   onReset: () => void;
   onSave: () => void;
+  isPiPSupported?: boolean;
+  isPiPActive?: boolean;
+  onTogglePiP?: () => void;
 }
 
 const Timer: React.FC<TimerProps> = ({
@@ -37,11 +46,15 @@ const Timer: React.FC<TimerProps> = ({
   savedCategories,
   onSubjectChange,
   onAddCategory,
+  onDeleteCategory,
   onTechniqueChange,
   onStart,
   onPause,
   onReset,
   onSave,
+  isPiPSupported = false,
+  isPiPActive = false,
+  onTogglePiP = () => {},
 }) => {
   const formatTime = (totalSeconds: number) => {
     const h = Math.floor(totalSeconds / 3600);
@@ -52,7 +65,6 @@ const Timer: React.FC<TimerProps> = ({
       .padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
   };
 
-  // Calcular tiempo restante si hay límite
   const getRemainingTime = () => {
     if (technique.type === "libre") return null;
     const targetDuration = technique.isBreakTime
@@ -62,7 +74,6 @@ const Timer: React.FC<TimerProps> = ({
     return formatTime(remaining);
   };
 
-  // Calcular progreso
   const getProgress = () => {
     if (technique.type === "libre") return 0;
     const targetDuration = technique.isBreakTime
@@ -75,234 +86,377 @@ const Timer: React.FC<TimerProps> = ({
   const hasTimeLimit = technique.type !== "libre";
   const progress = getProgress();
 
+  // Get display time
+  const displayTime = hasTimeLimit && isRunning
+    ? getRemainingTime() || formatTime(elapsedSeconds)
+    : formatTime(elapsedSeconds);
+
+  // Calculate SVG progress circle values
+  const circleRadius = 130;
+  const circumference = 2 * Math.PI * circleRadius;
+  const strokeDashoffset = circumference - (progress / 100) * circumference;
+
   return (
-    <div className="flex flex-col items-center justify-center w-full max-w-2xl mx-auto p-6 animate-fade-in space-y-6">
-      {/* Estadísticas de Pomodoros */}
+    <div className="flex flex-col items-center justify-center w-full max-w-2xl mx-auto px-4 py-8 space-y-6">
+      {/* Stats Pills - Compact */}
       {technique.type !== "libre" && (
-        <div className="flex gap-4 w-full justify-center flex-wrap">
-          <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
-            <Target className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-            <span className="text-sm text-slate-600 dark:text-slate-300">
-              Hoy:{" "}
-              <span className="font-bold text-blue-600 dark:text-blue-400">
-                {pomodoroStats.daily}
-              </span>
+        <div
+          className="flex gap-2 animate-fade-in"
+          style={{ animationDelay: "0.1s" }}
+        >
+          {/* Today stats */}
+          <div className="glass-card px-3 py-1.5 flex items-center gap-2">
+            <Target className="w-3.5 h-3.5" style={{ color: "var(--accent-cyan)" }} />
+            <span className="text-xs" style={{ color: "var(--text-muted)" }}>Hoy</span>
+            <span className="text-sm font-bold font-mono" style={{ color: "var(--accent-cyan)" }}>
+              {pomodoroStats.daily}
             </span>
           </div>
-          <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-xl border border-purple-200 dark:border-purple-800">
-            <Brain className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-            <span className="text-sm text-slate-600 dark:text-slate-300">
-              Semana:{" "}
-              <span className="font-bold text-purple-600 dark:text-purple-400">
-                {pomodoroStats.weekly}
-              </span>
+
+          {/* Week stats */}
+          <div className="glass-card px-3 py-1.5 flex items-center gap-2">
+            <Brain className="w-3.5 h-3.5" style={{ color: "var(--accent-magenta)" }} />
+            <span className="text-xs" style={{ color: "var(--text-muted)" }}>Semana</span>
+            <span className="text-sm font-bold font-mono" style={{ color: "var(--accent-magenta)" }}>
+              {pomodoroStats.weekly}
             </span>
           </div>
+
+          {/* Cycles stats */}
           {technique.cyclesCompleted > 0 && (
-            <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl border border-green-200 dark:border-green-800 animate-bounce-subtle">
-              <Coffee className="w-4 h-4 text-green-600 dark:text-green-400" />
-              <span className="text-sm text-slate-600 dark:text-slate-300">
-                Ciclos:{" "}
-                <span className="font-bold text-green-600 dark:text-green-400">
-                  {technique.cyclesCompleted}
-                </span>
+            <div className="glass-card px-3 py-1.5 flex items-center gap-2">
+              <Coffee className="w-3.5 h-3.5" style={{ color: "var(--accent-lime)" }} />
+              <span className="text-xs" style={{ color: "var(--text-muted)" }}>Ciclos</span>
+              <span className="text-sm font-bold font-mono" style={{ color: "var(--accent-lime)" }}>
+                {technique.cyclesCompleted}
               </span>
             </div>
           )}
         </div>
       )}
 
-      {/* Indicador de Estado */}
-      {hasTimeLimit && (
+      {/* Timer Circle - Neumorphic Design */}
+      <div
+        className="relative animate-fade-in-up"
+        style={{ animationDelay: "0.2s" }}
+      >
+        {/* Outer glow */}
         <div
-          className={`
-          px-6 py-3 rounded-full font-bold text-sm shadow-lg transition-all duration-500
-          ${
-            isBreakTime
-              ? "bg-gradient-to-r from-emerald-500 to-teal-600 text-white"
-              : "bg-gradient-to-r from-primary-500 to-violet-600 text-white"
-          }
-          ${isRunning ? "animate-pulse" : ""}
-        `}
-        >
-          {isBreakTime ? (
-            <span className="flex items-center gap-2">
-              <Coffee className="w-4 h-4" />
-              Tiempo de Descanso
-            </span>
-          ) : (
-            <span className="flex items-center gap-2">
-              <Brain className="w-4 h-4" />
-              Tiempo de Enfoque
-            </span>
-          )}
-        </div>
-      )}
+          className="absolute -inset-4 rounded-full blur-2xl transition-opacity duration-500"
+          style={{
+            background: isBreakTime
+              ? "radial-gradient(circle, rgba(0, 255, 136, 0.2) 0%, transparent 70%)"
+              : "radial-gradient(circle, rgba(0, 245, 255, 0.2) 0%, transparent 70%)",
+            opacity: isRunning ? 1 : 0.3,
+          }}
+        />
 
-      {/* Círculo del Timer */}
-      <div className="relative mb-8 group">
+        {/* Main timer container */}
         <div
-          className={`
-          absolute -inset-1 rounded-full blur transition duration-1000
-          ${isRunning ? "opacity-75" : "opacity-25"}
-          ${
-            isBreakTime
-              ? "bg-gradient-to-r from-emerald-500 to-teal-600"
-              : "bg-gradient-to-r from-primary-600 to-blue-600"
-          }
-        `}
-        ></div>
-        <div className="relative bg-white dark:bg-slate-900 rounded-full w-72 h-72 flex items-center justify-center border-4 border-slate-100 dark:border-slate-800 shadow-xl">
-          {/* Barra de progreso circular */}
-          {hasTimeLimit && progress > 0 && (
-            <svg className="absolute inset-0 w-full h-full -rotate-90">
+          className="relative w-80 h-80 rounded-full flex items-center justify-center neu-card"
+          style={{
+            background: "var(--bg-surface)",
+          }}
+        >
+          {/* Progress ring SVG */}
+          {hasTimeLimit && (
+            <svg
+              className="absolute inset-0 w-full h-full -rotate-90"
+              viewBox="0 0 320 320"
+            >
+              {/* Background track */}
               <circle
-                cx="144"
-                cy="144"
-                r="138"
-                stroke={isBreakTime ? "#10b981" : "#8b5cf6"}
-                strokeWidth="8"
+                cx="160"
+                cy="160"
+                r={145}
                 fill="none"
-                strokeDasharray={`${(progress / 100) * 867} 867`}
+                stroke="var(--bg-elevated)"
+                strokeWidth="6"
+              />
+              {/* Progress arc */}
+              <circle
+                cx="160"
+                cy="160"
+                r={145}
+                fill="none"
+                stroke={isBreakTime ? "var(--accent-lime)" : "var(--accent-cyan)"}
+                strokeWidth="6"
                 strokeLinecap="round"
+                strokeDasharray={2 * Math.PI * 145}
+                strokeDashoffset={2 * Math.PI * 145 - (progress / 100) * 2 * Math.PI * 145}
                 className="transition-all duration-300"
-                opacity="0.3"
+                style={{
+                  filter: isRunning
+                    ? `drop-shadow(0 0 8px ${isBreakTime ? "rgba(0, 255, 136, 0.6)" : "rgba(0, 245, 255, 0.6)"})`
+                    : "none",
+                }}
               />
             </svg>
           )}
 
-          <div className="flex flex-col items-center">
-            <span className="text-5xl font-mono font-bold text-slate-800 dark:text-slate-100 tracking-wider">
-              {hasTimeLimit && isRunning
-                ? getRemainingTime()
-                : formatTime(elapsedSeconds)}
-            </span>
-            {hasTimeLimit && isRunning && (
-              <span className="text-xs text-slate-400 dark:text-slate-500 mt-2">
-                Transcurrido: {formatTime(elapsedSeconds)}
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div className="w-full">
-        <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white/70 dark:bg-slate-900/60 shadow-sm p-5 space-y-5">
-          <div className="space-y-1">
-            <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-              Categoría
-            </label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={subject}
-                onChange={(e) => onSubjectChange(e.target.value)}
-                disabled={isRunning || elapsedSeconds > 0}
-                className="flex-1 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/40 px-4 py-2.5 text-sm text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-primary-500/40 focus:border-primary-500 disabled:opacity-60"
-                placeholder="Ej. Investigación"
-              />
-              <button
-                type="button"
-                aria-label="Guardar categoría"
-                disabled={
-                  isRunning ||
-                  elapsedSeconds > 0 ||
-                  subject.trim().length === 0 ||
-                  savedCategories.some(
-                    (category) =>
-                      category.toLowerCase() === subject.trim().toLowerCase()
-                  )
-                }
-                onClick={() => onAddCategory(subject)}
-                className="w-12 h-12 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-center text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 disabled:opacity-40 disabled:pointer-events-none"
+          {/* Inner content */}
+          <div className="relative z-10 flex flex-col items-center gap-4">
+            {/* Status badge - compact */}
+            {hasTimeLimit && (
+              <div
+                className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium"
+                style={{
+                  background: isBreakTime
+                    ? "rgba(0, 255, 136, 0.1)"
+                    : "rgba(0, 245, 255, 0.1)",
+                  border: `1px solid ${isBreakTime ? "rgba(0, 255, 136, 0.2)" : "rgba(0, 245, 255, 0.2)"}`,
+                  color: isBreakTime ? "var(--accent-lime)" : "var(--accent-cyan)",
+                }}
               >
-                <Plus className="w-5 h-5" />
-              </button>
-            </div>
-            {savedCategories.length > 0 && (
-              <div className="flex flex-wrap gap-2 pt-2">
-                {savedCategories.map((category) => (
-                  <button
-                    key={category}
-                    type="button"
-                    onClick={() => onSubjectChange(category)}
-                    disabled={isRunning || elapsedSeconds > 0}
-                    className={`px-3 py-1.5 rounded-full text-xs font-medium border transition ${
-                      subject === category
-                        ? "bg-primary-600 text-white border-primary-600"
-                        : "border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-primary-400"
-                    } ${
-                      isRunning || elapsedSeconds > 0
-                        ? "opacity-50 cursor-not-allowed"
-                        : ""
-                    }`}
-                  >
-                    {category}
-                  </button>
-                ))}
+                {isBreakTime ? (
+                  <>
+                    <Coffee className="w-3 h-3" />
+                    <span>Descanso</span>
+                  </>
+                ) : (
+                  <>
+                    <Zap className="w-3 h-3" />
+                    <span>Enfoque</span>
+                  </>
+                )}
               </div>
             )}
-          </div>
 
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <div className="w-full sm:max-w-xs">
-              <TechniqueSelector
-                currentTechnique={technique.type}
-                onSelectTechnique={onTechniqueChange}
-                disabled={isRunning || elapsedSeconds > 0}
-              />
-            </div>
+            {/* Time display */}
+            <span
+              className="font-mono font-bold tracking-tight transition-all duration-300 text-5xl"
+              style={{
+                color: "var(--text-primary)",
+                textShadow: isRunning
+                  ? isBreakTime
+                    ? "0 0 30px rgba(0, 255, 136, 0.4)"
+                    : "0 0 30px rgba(0, 245, 255, 0.4)"
+                  : "none",
+              }}
+            >
+              {displayTime}
+            </span>
 
-            <div className="flex flex-wrap gap-2 w-full sm:justify-end">
+            {/* Elapsed time or mode indicator */}
+            {hasTimeLimit && isRunning ? (
+              <span
+                className="text-xs font-mono"
+                style={{ color: "var(--text-muted)" }}
+              >
+                {formatTime(elapsedSeconds)}
+              </span>
+            ) : !hasTimeLimit ? (
+              <span
+                className="text-xs uppercase tracking-wider"
+                style={{ color: "var(--text-muted)" }}
+              >
+                Modo Libre
+              </span>
+            ) : null}
+
+            {/* Control Buttons - Inside Circle */}
+            <div className="flex items-center gap-2 mt-2">
+              {/* Play/Pause Button */}
               {!isRunning ? (
                 <button
-                  onClick={() => {
-                    console.log("🔵 [Timer] Botón Iniciar clickeado");
-                    console.log("🔵 [Timer] isRunning:", isRunning);
-                    console.log("🔵 [Timer] elapsedSeconds:", elapsedSeconds);
-                    console.log("🔵 [Timer] Llamando a onStart...");
-                    onStart();
-                    console.log("🔵 [Timer] onStart ejecutado");
-                  }}
+                  onClick={onStart}
                   aria-label={elapsedSeconds > 0 ? "Reanudar" : "Iniciar"}
-                  className="flex items-center justify-center w-12 h-12 rounded-xl bg-primary-600 text-white shadow-sm hover:bg-primary-700 focus:ring-2 focus:ring-primary-500/40"
+                  className="w-12 h-12 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95"
+                  style={{
+                    background: "var(--accent-cyan)",
+                    color: "var(--bg-base)",
+                    boxShadow: "var(--glow-cyan)",
+                  }}
                 >
-                  <Play className="w-5 h-5" fill="currentColor" />
+                  <Play className="w-5 h-5 ml-0.5" fill="currentColor" />
                 </button>
               ) : (
                 <button
-                  onClick={() => {
-                    console.log("🟡 [Timer] Botón Pausar clickeado");
-                    onPause();
-                  }}
+                  onClick={onPause}
                   aria-label="Pausar"
-                  className="flex items-center justify-center w-12 h-12 rounded-xl bg-amber-500 text-white shadow-sm hover:bg-amber-600 focus:ring-2 focus:ring-amber-500/40"
+                  className="w-12 h-12 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95"
+                  style={{
+                    background: "var(--status-warning)",
+                    color: "var(--bg-base)",
+                    boxShadow: "0 0 20px rgba(251, 191, 36, 0.4)",
+                  }}
                 >
                   <Pause className="w-5 h-5" fill="currentColor" />
                 </button>
               )}
 
+              {/* Save Button */}
               {elapsedSeconds > 0 && !isRunning && (
                 <button
                   onClick={onSave}
-                  aria-label="Guardar"
-                  className="flex items-center justify-center w-12 h-12 rounded-xl bg-emerald-600 text-white shadow-sm hover:bg-emerald-700 focus:ring-2 focus:ring-emerald-500/40"
+                  aria-label="Guardar sesión"
+                  className="w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95"
+                  style={{
+                    background: "var(--accent-lime)",
+                    color: "var(--bg-base)",
+                    boxShadow: "var(--glow-lime)",
+                  }}
                 >
-                  <Save className="w-5 h-5" />
+                  <Save className="w-4 h-4" />
                 </button>
               )}
 
+              {/* Reset Button */}
               {elapsedSeconds > 0 && !isRunning && (
                 <button
                   onClick={onReset}
                   aria-label="Reiniciar"
-                  className="flex items-center justify-center w-12 h-12 rounded-xl border border-rose-400 text-rose-500 dark:border-rose-500 dark:text-rose-300 hover:bg-rose-500/10 focus:ring-2 focus:ring-rose-500/40"
-                  title="Reiniciar"
+                  className="w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95"
+                  style={{
+                    background: "transparent",
+                    border: "1px solid var(--status-error)",
+                    color: "var(--status-error)",
+                  }}
                 >
-                  <StopCircle className="w-5 h-5" />
+                  <RotateCcw className="w-4 h-4" />
+                </button>
+              )}
+
+              {/* PiP Button */}
+              {isPiPSupported && (
+                <button
+                  onClick={onTogglePiP}
+                  aria-label={isPiPActive ? "Cerrar Picture-in-Picture" : "Abrir Picture-in-Picture"}
+                  className="w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95"
+                  style={{
+                    background: isPiPActive ? "var(--accent-magenta)" : "rgba(255, 255, 255, 0.05)",
+                    border: isPiPActive ? "none" : "1px solid rgba(255, 255, 255, 0.1)",
+                    color: isPiPActive ? "var(--bg-base)" : "var(--text-secondary)",
+                    boxShadow: isPiPActive ? "var(--glow-magenta)" : "none",
+                  }}
+                  title="Picture-in-Picture"
+                >
+                  {isPiPActive ? (
+                    <X className="w-4 h-4" />
+                  ) : (
+                    <PictureInPicture2 className="w-4 h-4" />
+                  )}
                 </button>
               )}
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Control Panel - Minimalist Command Center */}
+      <div
+        className="w-full max-w-2xl animate-fade-in-up"
+        style={{ animationDelay: "0.3s" }}
+      >
+        <div
+          className="relative group"
+          style={{
+            background: "rgba(255, 255, 255, 0.01)",
+            backdropFilter: "blur(24px)",
+            border: "1px solid rgba(255, 255, 255, 0.05)",
+            borderRadius: "24px",
+            boxShadow: "0 20px 50px rgba(0, 0, 0, 0.2)",
+          }}
+        >
+          {/* Subtle glow effect on hover */}
+          <div className="absolute -inset-[1px] bg-gradient-to-r from-transparent via-white/5 to-transparent rounded-[24px] opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+
+          <div className="p-8 space-y-8">
+            {/* Top Section: Integrated Input and Technique */}
+            <div className="flex flex-col md:flex-row items-end gap-8">
+              {/* Category Input: The focus point */}
+              <div className="flex-1 w-full space-y-4">
+                <div className="flex items-center gap-3 text-[10px] uppercase tracking-[0.3em] font-bold text-white/30 px-1">
+                  <Tag className="w-3 h-3" />
+                  <span>Enfoque actual</span>
+                </div>
+                <div className="relative group/input">
+                  <input
+                    type="text"
+                    value={subject}
+                    onChange={(e) => onSubjectChange(e.target.value)}
+                    disabled={isRunning || elapsedSeconds > 0}
+                    className="w-full bg-transparent text-xl md:text-2xl font-display tracking-tight text-white transition-all duration-300 outline-none placeholder:text-white/10"
+                    placeholder="¿En qué vas a trabajar?"
+                  />
+                  {/* Minimalistic focus line */}
+                  <div className="absolute -bottom-2 left-0 right-0 h-[1px] bg-white/5 transition-all duration-500 group-focus-within/input:bg-gradient-to-r group-focus-within/input:from-transparent group-focus-within/input:via-cyan-400/50 group-focus-within/input:to-transparent" />
+                </div>
+              </div>
+
+              {/* Technique Selection: Secondary focus */}
+              <div className="w-full md:w-auto space-y-4 min-w-[180px]">
+                <div className="flex items-center gap-3 text-[10px] uppercase tracking-[0.3em] font-bold text-white/30 px-1">
+                  <Zap className="w-3 h-3" />
+                  <span>Modo</span>
+                </div>
+                <TechniqueSelector
+                  currentTechnique={technique.type}
+                  onSelectTechnique={onTechniqueChange}
+                  disabled={isRunning || elapsedSeconds > 0}
+                />
+              </div>
+            </div>
+
+            {/* Bottom Section: Recent History as subtle chips */}
+            {savedCategories.length > 0 && (
+              <div className="space-y-4 pt-4 border-t border-white/[0.03]">
+                <div className="flex items-center justify-center">
+                  <div className="flex items-center gap-2 text-[9px] uppercase tracking-[0.2em] font-bold text-white/20">
+                    <History className="w-3 h-3" />
+                    <span>Sugerencias recientes</span>
+                    <span className="text-white/10">({savedCategories.length})</span>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap justify-center gap-2">
+                  {savedCategories.map((category) => {
+                    const isSelected = subject === category;
+                    return (
+                      <div key={category} className="relative inline-block group/chip-container">
+                        <button
+                          type="button"
+                          onClick={() => onSubjectChange(category)}
+                          disabled={isRunning || elapsedSeconds > 0}
+                          className="group/chip relative px-4 py-2 rounded-full transition-all duration-300"
+                          style={{
+                            background: isSelected ? "rgba(0, 245, 255, 0.1)" : "transparent",
+                            opacity: isRunning || elapsedSeconds > 0 ? 0.4 : 1,
+                            cursor: isRunning || elapsedSeconds > 0 ? "not-allowed" : "pointer",
+                          }}
+                        >
+                          <span className={`text-xs font-medium transition-colors duration-300 ${isSelected ? "text-cyan-400" : "text-white/40 group-hover/chip:text-white/70"}`}>
+                            {category}
+                          </span>
+                          {!isSelected && (
+                            <div className="absolute inset-0 border border-white/5 rounded-full group-hover/chip:border-white/10 transition-colors" />
+                          )}
+                        </button>
+
+                        {/* Delete button */}
+                        {!isRunning && elapsedSeconds === 0 && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDeleteCategory(category);
+                            }}
+                            className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center opacity-0 group-hover/chip-container:opacity-100 transition-all hover:scale-110"
+                            style={{
+                              background: "var(--status-error)",
+                              color: "var(--bg-base)",
+                              boxShadow: "0 2px 8px rgba(239, 68, 68, 0.4)",
+                            }}
+                            title={`Eliminar ${category}`}
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

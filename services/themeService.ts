@@ -167,6 +167,30 @@ class ThemeService {
       root.style.setProperty(`--color-primary-${shade}`, color);
     });
 
+    // Actualizar el color de acento actual basado en la paleta
+    const accentColor = palette.colors[500];
+    const accentColorDim = palette.colors[600];
+    const glowColor = `0 0 20px ${palette.colors[500]}66`;
+
+    root.style.setProperty('--accent-current', accentColor);
+    root.style.setProperty('--accent-current-dim', accentColorDim);
+    root.style.setProperty('--glow-current', glowColor);
+
+    // Actualizar el atributo data-accent en el body para compatibilidad
+    // Mapear paletas a data-accent existentes
+    const accentMap: Record<ColorPaletteId, string> = {
+      'violet': 'violet',
+      'blue': 'cyan',
+      'emerald': 'lime',
+      'rose': 'magenta',
+      'amber': 'amber',
+    };
+
+    const body = document.body;
+    if (body) {
+      body.setAttribute('data-accent', accentMap[palette.id] || 'violet');
+    }
+
     // Actualizar también el theme-color del PWA
     const metaThemeColor = document.querySelector('meta[name="theme-color"]');
     if (metaThemeColor) {

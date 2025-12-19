@@ -43,12 +43,14 @@ export const saveSession = async (
       notes: session.notes,
     })
     .select()
-    .single();
+    .maybeSingle();
 
   if (error) {
     console.error('Error saving session:', error);
     return null;
   }
+
+  if (!data) return null;
 
   return {
     id: data.id,
@@ -111,12 +113,14 @@ export const saveObjective = async (
       created_at: objective.createdAt,
     })
     .select()
-    .single();
+    .maybeSingle();
 
   if (error) {
     console.error('Error saving objective:', error);
     return null;
   }
+
+  if (!data) return null;
 
   return {
     id: data.id,
@@ -170,14 +174,14 @@ export const getTimerState = async (userId: string): Promise<TimerState | null> 
     .from('timer_state')
     .select('state')
     .eq('user_id', userId)
-    .single();
+    .maybeSingle();
 
   if (error) {
-    // No timer state found is not an error
-    if (error.code === 'PGRST116') return null;
     console.error('Error fetching timer state:', error);
     return null;
   }
+
+  if (!data) return null;
 
   return data.state as TimerState;
 };
@@ -286,14 +290,14 @@ export const getNotificationSettings = async (
     .from('notification_settings')
     .select('settings')
     .eq('user_id', userId)
-    .single();
+    .maybeSingle();
 
   if (error) {
-    // No settings found is not an error
-    if (error.code === 'PGRST116') return null;
     console.error('Error fetching notification settings:', error);
     return null;
   }
+
+  if (!data) return null;
 
   return data.settings as NotificationSettings;
 };

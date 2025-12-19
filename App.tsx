@@ -1,15 +1,14 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   LayoutDashboard,
   Timer as TimerIcon,
   History as HistoryIcon,
-  Moon,
-  Sun,
   BookOpen,
   Settings,
   LogOut,
   User,
   Loader2,
+  Zap,
 } from "lucide-react";
 import {
   StudySession,
@@ -19,7 +18,6 @@ import {
   StudyTechnique,
   NotificationSettings as NotificationSettingsType,
   WeeklyGoalsByCategory,
-  ColorPaletteId,
 } from "./types";
 import {
   getSessions,
@@ -50,6 +48,7 @@ import { faviconService } from "./services/faviconService";
 import { notificationService } from "./services/notificationService";
 import { audioService } from "./services/audioService";
 import { themeService } from "./services/themeService";
+import { usePictureInPicture } from "./hooks/usePictureInPicture";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import Timer from "./components/Timer";
 import History from "./components/History";
@@ -58,8 +57,7 @@ import SettingsComponent from "./components/NotificationSettings";
 import Login from "./components/Auth/Login";
 import Register from "./components/Auth/Register";
 
-// Constante para el intervalo de sincronización (1 hora en ms)
-const SYNC_INTERVAL = 60 * 60 * 1000; // 1 hora
+const SYNC_INTERVAL = 60 * 60 * 1000;
 
 function AppContent() {
   const { user, loading: authLoading, signOut } = useAuth();
@@ -67,35 +65,26 @@ function AppContent() {
 
   const [sessions, setSessions] = useState<StudySession[]>([]);
   const [currentView, setCurrentView] = useState<ViewState>("timer");
-  const [darkMode, setDarkMode] = useState(
-    () => themeService.getSettings().darkMode
-  );
-  const [colorPalette, setColorPalette] = useState<ColorPaletteId>(
-    () => themeService.getSettings().colorPalette
-  );
+  const [viewKey, setViewKey] = useState(0);
   const [dataLoading, setDataLoading] = useState(true);
 
-  // State for Goals
   const [objectives, setObjectives] = useState<Objective[]>([]);
   const [weeklyTarget, setWeeklyTarget] = useState<number>(10);
   const [categories, setCategories] = useState<string[]>([]);
   const [categoryGoals, setCategoryGoals] = useState<WeeklyGoalsByCategory>({});
 
-  // Notification Settings
   const [notificationSettings, setNotificationSettings] =
     useState<NotificationSettingsType>(getDefaultNotificationSettings());
+  const [notificationSettingsLoaded, setNotificationSettingsLoaded] = useState(false);
 
-  // Lifted Timer State
   const [timerState, setTimerState] =
     useState<TimerState>(getDefaultTimerState);
   const [now, setNow] = useState(Date.now());
 
-  // Track if data has been loaded for this session
   const [dataLoadedForUser, setDataLoadedForUser] = useState<string | null>(
     null
   );
 
-  // Load data when user authenticates (only once per user session)
   useEffect(() => {
     if (!user) {
       setDataLoading(false);
@@ -103,7 +92,6 @@ function AppContent() {
       return;
     }
 
-    // Skip if data already loaded for this user
     if (dataLoadedForUser === user.id) {
       setDataLoading(false);
       return;
@@ -123,17 +111,13 @@ function AppContent() {
         setSessions(loadedSessions);
         setObjectives(loadedObjectives);
 
-        // Extract categories from sessions
         const uniqueCategories = [
           ...new Set(loadedSessions.map((s) => s.subject)),
         ];
         setCategories(uniqueCategories);
 
-        // Restore timer state if exists
         if (loadedTimerState) {
-          // Check if the timer was running when saved
           if (loadedTimerState.isRunning && loadedTimerState.startTime) {
-            // Calculate accumulated time since last save
             const timeSinceStart = Math.floor(
               (Date.now() - loadedTimerState.startTime) / 1000
             );
@@ -149,12 +133,11 @@ function AppContent() {
           }
         }
 
-        // Restore notification settings if exists
         if (loadedNotificationSettings) {
           setNotificationSettings(loadedNotificationSettings);
         }
+        setNotificationSettingsLoaded(true);
 
-        // Mark data as loaded for this user
         setDataLoadedForUser(user.id);
       } catch (error) {
         console.error("Error loading user data:", error);
@@ -166,39 +149,30 @@ function AppContent() {
     loadUserData();
   }, [user, dataLoadedForUser]);
 
-  // Dark mode
   useEffect(() => {
-    // El tema se carga desde localStorage via themeService en el estado inicial
     themeService.applyTheme();
   }, []);
 
-  // Sync audio settings
+  // Trigger animation on view change
+  useEffect(() => {
+    setViewKey(prev => prev + 1);
+  }, [currentView]);
+
   useEffect(() => {
     audioService.setVolume(notificationSettings.soundVolume);
     audioService.setEnabled(notificationSettings.soundEnabled);
   }, [notificationSettings]);
 
-  // Save notification settings when changed
   useEffect(() => {
-    if (!user) return;
+    if (!user || !notificationSettingsLoaded) return;
 
     const saveSettings = async () => {
       await saveNotificationSettings(user.id, notificationSettings);
     };
 
     saveSettings();
-  }, [user, notificationSettings]);
+  }, [user, notificationSettings, notificationSettingsLoaded]);
 
-  useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-    }
-    themeService.setDarkMode(darkMode);
-  }, [darkMode]);
-
-  // Timer tick
   useEffect(() => {
     let interval: number;
     if (timerState.isRunning) {
@@ -209,19 +183,17 @@ function AppContent() {
     return () => clearInterval(interval);
   }, [timerState.isRunning]);
 
-  // Sync timer state every hour
   useEffect(() => {
     if (!user || !timerState.isRunning) return;
 
     const syncInterval = window.setInterval(async () => {
-      console.log("⏰ Syncing timer state to Supabase...");
+      console.log("Syncing timer state to Supabase...");
       await saveTimerState(user.id, timerState);
     }, SYNC_INTERVAL);
 
     return () => clearInterval(syncInterval);
   }, [user, timerState.isRunning, timerState]);
 
-  // Calculate elapsed seconds
   const elapsedSeconds = useMemo(() => {
     if (timerState.isRunning && timerState.startTime) {
       return (
@@ -232,14 +204,18 @@ function AppContent() {
     return timerState.accumulatedTime;
   }, [timerState, now]);
 
-  // Auto-transition between work and break
+  // Use ref to always have the latest elapsedSeconds value for callbacks
+  const elapsedSecondsRef = useRef(elapsedSeconds);
+  useEffect(() => {
+    elapsedSecondsRef.current = elapsedSeconds;
+  }, [elapsedSeconds]);
+
   useEffect(() => {
     if (!timerState.isRunning || timerState.technique.type === "libre") return;
 
     const technique = timerState.technique;
 
     if (shouldTransitionToBreak(elapsedSeconds, technique)) {
-      // Notificación de fin de trabajo
       if (notificationSettings.enabled && notificationSettings.workEndEnabled) {
         notificationService.notifyWorkPeriodEnd(
           technique.type,
@@ -247,17 +223,14 @@ function AppContent() {
         );
       }
 
-      // Audio de fin de trabajo
       if (notificationSettings.soundEnabled) {
         audioService.play('work-end');
       }
 
-      // Vibración de fin de trabajo
       if (notificationSettings.vibrationEnabled) {
         audioService.vibrate([200, 100, 200]);
       }
 
-      // Transición a descanso (inicia automáticamente)
       setTimerState((prev) => ({
         ...prev,
         isRunning: true,
@@ -266,7 +239,6 @@ function AppContent() {
         technique: startBreakTime(prev.technique),
       }));
 
-      // Sonido de inicio de descanso (después de un pequeño delay)
       setTimeout(() => {
         if (notificationSettings.soundEnabled) {
           audioService.play('achievement');
@@ -287,12 +259,10 @@ function AppContent() {
         weekly: timerState.pomodoroStats.weekly + 1,
       };
 
-      // Notificación de fin de descanso
       if (notificationSettings.enabled && notificationSettings.breakEndEnabled) {
         notificationService.notifyBreakPeriodEnd();
       }
 
-      // Notificación de ciclo completado
       if (notificationSettings.enabled && notificationSettings.cycleCompleteEnabled) {
         notificationService.notifyCycleComplete(
           updatedTechnique.cyclesCompleted,
@@ -301,17 +271,14 @@ function AppContent() {
         );
       }
 
-      // Audio de ciclo completado
       if (notificationSettings.soundEnabled) {
         audioService.play('cycle-complete');
       }
 
-      // Vibración de ciclo completado
       if (notificationSettings.vibrationEnabled) {
         audioService.vibrate([200, 100, 200, 100, 200]);
       }
 
-      // Transición a trabajo (inicia automáticamente)
       setTimerState((prev) => ({
         ...prev,
         isRunning: true,
@@ -321,7 +288,6 @@ function AppContent() {
         pomodoroStats: updatedStats,
       }));
 
-      // Sonido de inicio de trabajo (después de un pequeño delay)
       setTimeout(() => {
         if (notificationSettings.soundEnabled) {
           audioService.play('achievement');
@@ -339,7 +305,6 @@ function AppContent() {
     notificationSettings,
   ]);
 
-  // Update favicon and title
   useEffect(() => {
     const isRunning = timerState.isRunning;
     const isPaused = !timerState.isRunning && timerState.accumulatedTime > 0;
@@ -355,14 +320,14 @@ function AppContent() {
       const timeStr = `${hours.toString().padStart(2, "0")}:${minutes
         .toString()
         .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
-      title = `⏱️ ${timeStr} - ${
+      title = `${timeStr} - ${
         timerState.subject || "Estudiando"
       } | FocusFlow`;
     } else if (isPaused && hasTime) {
       const hours = Math.floor(elapsedSeconds / 3600);
       const minutes = Math.floor((elapsedSeconds % 3600) / 60);
       const timeStr = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
-      title = `⏸️ Pausado (${timeStr}) | FocusFlow`;
+      title = `Pausado (${timeStr}) | FocusFlow`;
     }
 
     document.title = title;
@@ -379,7 +344,6 @@ function AppContent() {
     };
   }, []);
 
-  // Session handlers
   const addSession = useCallback(
     async (sessionData: Omit<StudySession, "id">) => {
       if (!user) return;
@@ -401,7 +365,6 @@ function AppContent() {
     }
   }, []);
 
-  // Objectives handlers
   const handleAddObjective = useCallback(
     async (text: string) => {
       if (!user) return;
@@ -464,6 +427,26 @@ function AppContent() {
     });
   };
 
+  const handleDeleteCategory = useCallback((category: string) => {
+    const hasGoal = categoryGoals[category] && categoryGoals[category] > 0;
+
+    const confirmMessage = hasGoal
+      ? `¿Eliminar "${category}"?\n\nEsta categoría tiene una meta semanal de ${categoryGoals[category]}h configurada. La meta también será eliminada.`
+      : `¿Eliminar "${category}" de las sugerencias?`;
+
+    if (!confirm(confirmMessage)) return;
+
+    // Eliminar de categorías
+    setCategories((prev) => prev.filter((c) => c !== category));
+
+    // Eliminar meta si existe
+    if (hasGoal) {
+      const newGoals = { ...categoryGoals };
+      delete newGoals[category];
+      setCategoryGoals(newGoals);
+    }
+  }, [categoryGoals]);
+
   const handleTechniqueChange = (technique: StudyTechnique) => {
     setTimerState((prev) => ({
       ...prev,
@@ -477,26 +460,23 @@ function AppContent() {
     setNotificationSettings(settings);
   };
 
-  // Timer handlers
-  const handleStartTimer = () => {
+  const handleStartTimer = useCallback(() => {
     setTimerState((prev) => ({
       ...prev,
       isRunning: true,
       startTime: Date.now(),
     }));
 
-    // Reproducir sonido al iniciar
     if (notificationSettings.soundEnabled) {
       audioService.play('achievement');
     }
 
-    // Vibración al iniciar
     if (notificationSettings.vibrationEnabled) {
       audioService.vibrate([100, 50, 100]);
     }
-  };
+  }, [notificationSettings.soundEnabled, notificationSettings.vibrationEnabled]);
 
-  const handlePauseTimer = () => {
+  const handlePauseTimer = useCallback(() => {
     setTimerState((prev) => {
       if (!prev.startTime) return prev;
       const currentSegment = Math.floor((Date.now() - prev.startTime) / 1000);
@@ -507,11 +487,12 @@ function AppContent() {
         accumulatedTime: prev.accumulatedTime + currentSegment,
       };
     });
-  };
+  }, []);
 
-  const handleResetTimer = () => {
+  const handleResetTimer = useCallback(() => {
+    const currentElapsed = elapsedSecondsRef.current;
     if (
-      elapsedSeconds > 10 &&
+      currentElapsed > 10 &&
       !confirm(
         "¿Estás seguro de reiniciar el contador? Se perderá el progreso actual."
       )
@@ -527,30 +508,51 @@ function AppContent() {
       technique: resetCycles(getTechniqueConfig(prev.technique.type)),
       pomodoroStats: prev.pomodoroStats,
     }));
-  };
+  }, []);
 
-  const handleSaveSession = async () => {
+  const handleSaveSession = useCallback(async () => {
     if (!user) return;
 
-    if (elapsedSeconds < 10) {
+    const currentElapsed = elapsedSecondsRef.current;
+    if (currentElapsed < 10) {
       alert("La sesión es muy corta para guardarse (< 10 segundos).");
       return;
     }
 
+    // Calcular el tiempo de trabajo efectivo basándose en la técnica
+    let workDurationSeconds = currentElapsed;
+    const technique = timerState.technique;
+
+    if (technique.type !== "libre") {
+      // Para Pomodoro y 52-17, calcular solo el tiempo de trabajo
+      const cycleDuration = technique.workDuration + technique.breakDuration;
+      const completeCycles = Math.floor(currentElapsed / cycleDuration);
+      const remainingTime = currentElapsed % cycleDuration;
+
+      // Tiempo de trabajo de ciclos completos
+      workDurationSeconds = completeCycles * technique.workDuration;
+
+      // Agregar tiempo de trabajo del ciclo incompleto
+      if (remainingTime > 0) {
+        // Si el tiempo restante es menor o igual al workDuration, es todo trabajo
+        // Si es mayor, solo contar el workDuration
+        workDurationSeconds += Math.min(remainingTime, technique.workDuration);
+      }
+    }
+
     const newSession = {
       subject: timerState.subject || "General",
-      startTime: Date.now() - elapsedSeconds * 1000,
+      startTime: Date.now() - currentElapsed * 1000,
       endTime: Date.now(),
-      durationSeconds: elapsedSeconds,
+      durationSeconds: currentElapsed,
+      workDurationSeconds: workDurationSeconds,
+      technique: technique.type,
       notes: timerState.notes,
     };
 
     await addSession(newSession);
-
-    // Clear timer state from Supabase
     await clearTimerState(user.id);
 
-    // Reset timer
     setTimerState((prev) => ({
       isRunning: false,
       startTime: null,
@@ -561,37 +563,118 @@ function AppContent() {
       pomodoroStats: prev.pomodoroStats,
     }));
 
-    // Add category if new
     if (newSession.subject && !categories.includes(newSession.subject)) {
       setCategories((prev) => [newSession.subject, ...prev].slice(0, 20));
     }
-  };
-
-  const toggleTheme = () => setDarkMode(!darkMode);
-
-  const handleColorPaletteChange = (palette: ColorPaletteId) => {
-    setColorPalette(palette);
-    themeService.setColorPalette(palette);
-  };
+  }, [user, timerState.subject, timerState.notes, timerState.technique, addSession, categories]);
 
   const handleSignOut = async () => {
     await signOut();
-    // Reset state
     setSessions([]);
     setObjectives([]);
     setCategories([]);
     setTimerState(getDefaultTimerState());
   };
 
-  // Combined loading state - show single loader during auth + data loading
+  const handleClearAllData = useCallback(async () => {
+    if (!user) return false;
+
+    try {
+      // Eliminar todas las sesiones
+      await Promise.all(sessions.map((s) => deleteSessionFromDB(s.id)));
+
+      // Eliminar todos los objetivos
+      await Promise.all(objectives.map((o) => deleteObjectiveFromDB(o.id)));
+
+      // Resetear notificaciones
+      await saveNotificationSettings(user.id, getDefaultNotificationSettings());
+
+      // Limpiar timer
+      await clearTimerState(user.id);
+
+      // Actualizar estado local
+      setSessions([]);
+      setObjectives([]);
+      setCategories([]);
+      setCategoryGoals({});
+      setTimerState(getDefaultTimerState());
+      setNotificationSettings(getDefaultNotificationSettings());
+
+      return true;
+    } catch (error) {
+      console.error('Error clearing data:', error);
+      return false;
+    }
+  }, [user, sessions, objectives]);
+
+  // Helper functions for PiP
+  const formatTime = useCallback((totalSeconds: number) => {
+    const h = Math.floor(totalSeconds / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    const s = totalSeconds % 60;
+    return `${h.toString().padStart(2, "0")}:${m
+      .toString()
+      .padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+  }, []);
+
+  const getRemainingTime = useCallback(() => {
+    if (timerState.technique.type === "libre") return null;
+    const targetDuration = timerState.technique.isBreakTime
+      ? timerState.technique.breakDuration
+      : timerState.technique.workDuration;
+    const remaining = Math.max(0, targetDuration - elapsedSeconds);
+    return formatTime(remaining);
+  }, [timerState.technique, elapsedSeconds, formatTime]);
+
+  const isBreakTime = timerState.technique.isBreakTime;
+  const hasTimeLimit = timerState.technique.type !== "libre";
+  const displayTime = hasTimeLimit && timerState.isRunning
+    ? getRemainingTime() || formatTime(elapsedSeconds)
+    : formatTime(elapsedSeconds);
+  const statusText = isBreakTime
+    ? "Descanso"
+    : hasTimeLimit
+      ? "Enfoque"
+      : "Libre";
+
+  // Picture-in-Picture hook - persists across view changes
+  const {
+    isSupported: isPiPSupported,
+    isActive: isPiPActive,
+    togglePiP,
+  } = usePictureInPicture({
+    time: displayTime,
+    isRunning: timerState.isRunning,
+    isBreakTime,
+    status: statusText,
+    hasElapsedTime: elapsedSeconds > 0,
+    onPlay: handleStartTimer,
+    onPause: handlePauseTimer,
+    onSave: handleSaveSession,
+    onReset: handleResetTimer,
+  });
+
   const isFullyLoading = authLoading || (user && dataLoading);
 
+  // Loading screen with new design
   if (isFullyLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-slate-950 transition-opacity duration-300">
-        <div className="flex flex-col items-center space-y-4 animate-fade-in">
-          <Loader2 className="w-12 h-12 text-primary-600 animate-spin" />
-          <p className="text-slate-600 dark:text-slate-400">
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ background: "var(--bg-base)" }}
+      >
+        <div className="flex flex-col items-center space-y-6 animate-fade-in">
+          <div className="relative">
+            <div
+              className="absolute inset-0 rounded-full blur-xl"
+              style={{ background: "var(--accent-cyan)", opacity: 0.3 }}
+            />
+            <Loader2
+              className="w-16 h-16 animate-spin relative"
+              style={{ color: "var(--accent-cyan)" }}
+            />
+          </div>
+          <p style={{ color: "var(--text-secondary)" }}>
             {authLoading ? "Verificando sesión..." : "Cargando tus datos..."}
           </p>
         </div>
@@ -599,7 +682,6 @@ function AppContent() {
     );
   }
 
-  // Auth screens
   if (!user) {
     if (authView === "login") {
       return <Login onSwitchToRegister={() => setAuthView("register")} />;
@@ -607,148 +689,161 @@ function AppContent() {
     return <Register onSwitchToLogin={() => setAuthView("login")} />;
   }
 
-  const HeaderNavButton = ({
-    view,
-    icon: Icon,
-    label,
-  }: {
-    view: ViewState;
-    icon: React.ElementType;
-    label: string;
-  }) => (
-    <button
-      onClick={() => setCurrentView(view)}
-      className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-all ${
-        currentView === view
-          ? "text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/20"
-          : "text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
-      }`}
-    >
-      <Icon className="w-5 h-5" />
-      <span className="text-sm font-medium hidden sm:block">{label}</span>
-    </button>
-  );
+  const navItems = [
+    { view: "timer" as ViewState, icon: TimerIcon, label: "Timer" },
+    { view: "dashboard" as ViewState, icon: LayoutDashboard, label: "Dashboard" },
+    { view: "history" as ViewState, icon: HistoryIcon, label: "Historial" },
+    { view: "settings" as ViewState, icon: Settings, label: "Ajustes" },
+  ];
 
   return (
-    <div className="min-h-screen flex flex-col font-sans bg-gray-50 dark:bg-slate-950 transition-colors duration-300">
+    <div
+      className="min-h-screen flex flex-col font-display"
+      style={{ background: "var(--bg-base)" }}
+    >
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-6 py-4">
-        <div className="relative flex items-center justify-between">
+      <header
+        className="sticky top-0 z-50 px-6 py-4"
+        style={{
+          background: "rgba(10, 10, 15, 0.8)",
+          backdropFilter: "blur(12px)",
+          borderBottom: "1px solid var(--glass-border)",
+        }}
+      >
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
           {/* Logo */}
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center gap-3">
             <div
-              className={`p-2 rounded-lg transition-colors ${
-                timerState.isRunning
-                  ? "bg-green-500 animate-pulse"
-                  : "bg-primary-600"
-              }`}
+              className="w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300"
+              style={{
+                background: timerState.isRunning
+                  ? "var(--accent-lime)"
+                  : "var(--accent-cyan)",
+                boxShadow: timerState.isRunning
+                  ? "var(--glow-lime)"
+                  : "var(--glow-cyan)",
+              }}
             >
-              <BookOpen className="w-5 h-5 text-white" />
+              <BookOpen className="w-5 h-5" style={{ color: "var(--bg-base)" }} />
             </div>
-            <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary-600 to-violet-600 dark:from-primary-400 dark:to-violet-400">
+            <h1
+              className="text-xl font-bold tracking-tight"
+              style={{ color: "var(--text-primary)" }}
+            >
               FocusFlow
             </h1>
           </div>
 
-          {/* Navigation - Centered (hidden on mobile, shown in bottom nav) */}
-          <nav className="hidden md:flex absolute left-1/2 transform -translate-x-1/2 items-center space-x-2">
-            <button
-              onClick={() => setCurrentView("timer")}
-              className={`relative flex items-center space-x-2 px-4 py-2 rounded-lg transition-all ${
-                currentView === "timer"
-                  ? "text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/20"
-                  : "text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
-              }`}
-            >
-              {timerState.isRunning && (
-                <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-pulse border-2 border-white dark:border-slate-950"></span>
-              )}
-              <TimerIcon className="w-5 h-5" />
-              <span className="text-sm font-medium hidden sm:block">Timer</span>
-            </button>
+          {/* Desktop Navigation */}
+          <nav className="hidden md:flex items-center gap-1">
+            {navItems.map(({ view, icon: Icon, label }) => {
+              const isActive = currentView === view;
+              const isTimerRunning = view === "timer" && timerState.isRunning;
 
-            <HeaderNavButton
-              view="dashboard"
-              icon={LayoutDashboard}
-              label="Dashboard"
-            />
-
-            <HeaderNavButton
-              view="history"
-              icon={HistoryIcon}
-              label="Historial"
-            />
-
-            <HeaderNavButton view="settings" icon={Settings} label="Ajustes" />
+              return (
+                <button
+                  key={view}
+                  onClick={() => setCurrentView(view)}
+                  className="relative px-4 py-2.5 rounded-xl flex items-center gap-2 transition-all duration-200"
+                  style={{
+                    background: isActive ? "var(--glass-bg)" : "transparent",
+                    border: isActive ? "1px solid var(--glass-border)" : "1px solid transparent",
+                    color: isActive ? "var(--accent-current)" : "var(--text-muted)",
+                  }}
+                >
+                  {isTimerRunning && (
+                    <span
+                      className="absolute -top-1 -right-1 w-3 h-3 rounded-full animate-pulse"
+                      style={{
+                        background: "var(--accent-lime)",
+                        boxShadow: "var(--glow-lime)",
+                      }}
+                    />
+                  )}
+                  <Icon className="w-5 h-5" />
+                  <span className="text-sm font-medium">{label}</span>
+                </button>
+              );
+            })}
           </nav>
 
           {/* Right side */}
-          <div className="ml-auto flex items-center space-x-3">
-            {/* Mini Timer Display */}
-            {currentView !== "timer" && elapsedSeconds > 0 && (
-              <div
+          <div className="flex items-center gap-3">
+            {/* Mini Timer - Hidden when PiP is active */}
+            {currentView !== "timer" && elapsedSeconds > 0 && !isPiPActive && (
+              <button
                 onClick={() => setCurrentView("timer")}
-                className="hidden lg:flex items-center px-3 py-1 bg-primary-50 dark:bg-primary-900/20 rounded-full text-primary-600 dark:text-primary-400 text-sm font-mono font-bold cursor-pointer hover:bg-primary-100 dark:hover:bg-primary-900/40 transition-colors"
+                className="hidden lg:flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-200 hover:scale-105"
+                style={{
+                  background: "var(--glass-bg)",
+                  border: "1px solid var(--glass-border)",
+                }}
               >
                 <div
-                  className={`w-2 h-2 rounded-full mr-2 ${
-                    timerState.isRunning
-                      ? "bg-green-500 animate-pulse"
-                      : "bg-amber-500"
-                  }`}
-                ></div>
-                {Math.floor(elapsedSeconds / 3600)
-                  .toString()
-                  .padStart(2, "0")}
-                :
-                {Math.floor((elapsedSeconds % 3600) / 60)
-                  .toString()
-                  .padStart(2, "0")}
-                :{(elapsedSeconds % 60).toString().padStart(2, "0")}
-              </div>
+                  className="w-2 h-2 rounded-full"
+                  style={{
+                    background: timerState.isRunning
+                      ? "var(--accent-lime)"
+                      : "var(--status-warning)",
+                    boxShadow: timerState.isRunning
+                      ? "var(--glow-lime)"
+                      : "0 0 10px rgba(251, 191, 36, 0.4)",
+                  }}
+                />
+                <span
+                  className="font-mono font-semibold text-sm"
+                  style={{ color: "var(--text-primary)" }}
+                >
+                  {Math.floor(elapsedSeconds / 3600)
+                    .toString()
+                    .padStart(2, "0")}
+                  :
+                  {Math.floor((elapsedSeconds % 3600) / 60)
+                    .toString()
+                    .padStart(2, "0")}
+                  :{(elapsedSeconds % 60).toString().padStart(2, "0")}
+                </span>
+              </button>
             )}
 
-            {/* User Menu */}
-            <div className="flex items-center space-x-2">
-              <div className="hidden sm:flex items-center space-x-2 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-lg">
-                <User className="w-4 h-4 text-slate-500" />
-                <span className="text-sm text-slate-600 dark:text-slate-300 max-w-32 truncate">
-                  {user.email}
-                </span>
-              </div>
-              <button
-                onClick={handleSignOut}
-                className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-600 dark:text-slate-400"
-                title="Cerrar sesión"
+            {/* User info */}
+            <div
+              className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl"
+              style={{
+                background: "var(--bg-elevated)",
+                border: "1px solid var(--glass-border)",
+              }}
+            >
+              <User className="w-4 h-4" style={{ color: "var(--text-muted)" }} />
+              <span
+                className="text-sm max-w-32 truncate"
+                style={{ color: "var(--text-secondary)" }}
               >
-                <LogOut className="w-5 h-5" />
-              </button>
+                {user.email}
+              </span>
             </div>
 
+            {/* Logout */}
             <button
-              onClick={toggleTheme}
-              className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-600 dark:text-slate-400"
+              onClick={handleSignOut}
+              className="w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200 hover:scale-105"
+              style={{
+                background: "var(--bg-elevated)",
+                border: "1px solid var(--glass-border)",
+                color: "var(--text-muted)",
+              }}
+              title="Cerrar sesión"
             >
-              {darkMode ? (
-                <Sun className="w-5 h-5" />
-              ) : (
-                <Moon className="w-5 h-5" />
-              )}
+              <LogOut className="w-5 h-5" />
             </button>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 container mx-auto px-4 py-6 max-w-5xl pb-24 md:pb-6">
+      <main className="flex-1 container mx-auto px-4 py-8 max-w-5xl pb-28 md:pb-8">
         {currentView === "timer" && (
-          <div className="flex flex-col items-center animate-fade-in">
-            <h2 className="text-3xl font-bold mb-2 text-slate-800 dark:text-white">
-              Tu tiempo de enfoque
-            </h2>
-            <p className="text-slate-500 dark:text-slate-400 mb-8">
-              Elige una categoría y comienza a medir tu progreso.
-            </p>
+          <div key={`timer-${viewKey}`} className="flex flex-col items-center animate-view-enter">
             <Timer
               isRunning={timerState.isRunning}
               elapsedSeconds={elapsedSeconds}
@@ -760,107 +855,114 @@ function AppContent() {
                 setTimerState((prev) => ({ ...prev, subject: val }))
               }
               onAddCategory={handleAddCategory}
+              onDeleteCategory={handleDeleteCategory}
               onTechniqueChange={handleTechniqueChange}
               onStart={handleStartTimer}
               onPause={handlePauseTimer}
               onReset={handleResetTimer}
               onSave={handleSaveSession}
+              isPiPSupported={isPiPSupported}
+              isPiPActive={isPiPActive}
+              onTogglePiP={togglePiP}
             />
           </div>
         )}
+
         {currentView === "dashboard" && (
-          <Dashboard
-            sessions={sessions}
-            objectives={objectives}
-            weeklyTarget={weeklyTarget}
-            categories={categories}
-            categoryGoals={categoryGoals}
-            onAddObjective={handleAddObjective}
-            onToggleObjective={handleToggleObjective}
-            onDeleteObjective={handleDeleteObjective}
-            onUpdateWeeklyTarget={handleUpdateWeeklyTarget}
-            onUpdateCategoryGoals={handleUpdateCategoryGoals}
-          />
+          <div key={`dashboard-${viewKey}`} className="animate-view-enter">
+            <Dashboard
+              sessions={sessions}
+              objectives={objectives}
+              weeklyTarget={weeklyTarget}
+              categories={categories}
+              categoryGoals={categoryGoals}
+              onAddObjective={handleAddObjective}
+              onToggleObjective={handleToggleObjective}
+              onDeleteObjective={handleDeleteObjective}
+              onDeleteCategory={handleDeleteCategory}
+              onUpdateWeeklyTarget={handleUpdateWeeklyTarget}
+              onUpdateCategoryGoals={handleUpdateCategoryGoals}
+            />
+          </div>
         )}
+
         {currentView === "history" && (
-          <div className="animate-fade-in">
+          <div key={`history-${viewKey}`} className="animate-view-enter">
             <History
               sessions={sessions}
               onDeleteSession={handleDeleteSession}
             />
           </div>
         )}
+
         {currentView === "settings" && (
-          <div className="max-w-2xl mx-auto animate-fade-in">
-            <h2 className="text-3xl font-bold mb-2 text-slate-800 dark:text-white">
-              Ajustes
-            </h2>
-            <p className="text-slate-500 dark:text-slate-400 mb-8">
-              Configura notificaciones, sonidos y preferencias de la aplicación.
-            </p>
+          <div key={`settings-${viewKey}`} className="max-w-2xl mx-auto animate-view-enter">
+            <div className="text-center mb-8">
+              <h2
+                className="text-3xl font-bold mb-2"
+                style={{ color: "var(--text-primary)" }}
+              >
+                Ajustes
+              </h2>
+              <p style={{ color: "var(--text-muted)" }}>
+                Configura notificaciones, sonidos y preferencias.
+              </p>
+            </div>
             <SettingsComponent
               settings={notificationSettings}
               onSettingsChange={handleNotificationSettingsChange}
-              currentPalette={colorPalette}
-              onPaletteChange={handleColorPaletteChange}
+              onClearAllData={handleClearAllData}
             />
           </div>
         )}
       </main>
 
       {/* Mobile Bottom Navigation */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 dark:bg-slate-950/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 px-4 py-2 safe-area-bottom">
-        <div className="flex items-center justify-around">
-          <button
-            onClick={() => setCurrentView("timer")}
-            className={`relative flex flex-col items-center py-2 px-3 rounded-lg transition-all ${
-              currentView === "timer"
-                ? "text-primary-600 dark:text-primary-400"
-                : "text-slate-500 dark:text-slate-400"
-            }`}
-          >
-            {timerState.isRunning && (
-              <span className="absolute top-1 right-2 w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse"></span>
-            )}
-            <TimerIcon className="w-6 h-6" />
-            <span className="text-xs mt-1 font-medium">Timer</span>
-          </button>
+      <nav
+        className="md:hidden fixed bottom-0 left-0 right-0 z-50 px-4 py-3 safe-area-bottom"
+        style={{
+          background: "rgba(10, 10, 15, 0.95)",
+          backdropFilter: "blur(12px)",
+          borderTop: "1px solid var(--glass-border)",
+        }}
+      >
+        <div className="flex items-center justify-around max-w-md mx-auto">
+          {navItems.map(({ view, icon: Icon, label }) => {
+            const isActive = currentView === view;
+            const isTimerRunning = view === "timer" && timerState.isRunning;
 
-          <button
-            onClick={() => setCurrentView("dashboard")}
-            className={`flex flex-col items-center py-2 px-3 rounded-lg transition-all ${
-              currentView === "dashboard"
-                ? "text-primary-600 dark:text-primary-400"
-                : "text-slate-500 dark:text-slate-400"
-            }`}
-          >
-            <LayoutDashboard className="w-6 h-6" />
-            <span className="text-xs mt-1 font-medium">Dashboard</span>
-          </button>
-
-          <button
-            onClick={() => setCurrentView("history")}
-            className={`flex flex-col items-center py-2 px-3 rounded-lg transition-all ${
-              currentView === "history"
-                ? "text-primary-600 dark:text-primary-400"
-                : "text-slate-500 dark:text-slate-400"
-            }`}
-          >
-            <HistoryIcon className="w-6 h-6" />
-            <span className="text-xs mt-1 font-medium">Historial</span>
-          </button>
-
-          <button
-            onClick={() => setCurrentView("settings")}
-            className={`flex flex-col items-center py-2 px-3 rounded-lg transition-all ${
-              currentView === "settings"
-                ? "text-primary-600 dark:text-primary-400"
-                : "text-slate-500 dark:text-slate-400"
-            }`}
-          >
-            <Settings className="w-6 h-6" />
-            <span className="text-xs mt-1 font-medium">Ajustes</span>
-          </button>
+            return (
+              <button
+                key={view}
+                onClick={() => setCurrentView(view)}
+                className="relative flex flex-col items-center py-2 px-4 rounded-xl transition-all duration-200"
+                style={{
+                  color: isActive ? "var(--accent-current)" : "var(--text-muted)",
+                }}
+              >
+                {isTimerRunning && (
+                  <span
+                    className="absolute top-1 right-3 w-2 h-2 rounded-full animate-pulse"
+                    style={{
+                      background: "var(--accent-lime)",
+                      boxShadow: "var(--glow-lime)",
+                    }}
+                  />
+                )}
+                <Icon className="w-6 h-6" />
+                <span className="text-xs mt-1 font-medium">{label}</span>
+                {isActive && (
+                  <div
+                    className="absolute -bottom-1 w-1 h-1 rounded-full"
+                    style={{
+                      background: "var(--accent-current)",
+                      boxShadow: "var(--glow-current)",
+                    }}
+                  />
+                )}
+              </button>
+            );
+          })}
         </div>
       </nav>
     </div>
