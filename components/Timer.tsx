@@ -11,6 +11,8 @@ import {
   PictureInPicture2,
   X,
   Zap,
+  Tag,
+  History,
 } from "lucide-react";
 import { StudyTechnique, TechniqueConfig } from "../types";
 import TechniqueSelector from "./TechniqueSelector";
@@ -24,6 +26,7 @@ interface TimerProps {
   savedCategories: string[];
   onSubjectChange: (value: string) => void;
   onAddCategory: (value: string) => void;
+  onDeleteCategory: (category: string) => void;
   onTechniqueChange: (technique: StudyTechnique) => void;
   onStart: () => void;
   onPause: () => void;
@@ -43,6 +46,7 @@ const Timer: React.FC<TimerProps> = ({
   savedCategories,
   onSubjectChange,
   onAddCategory,
+  onDeleteCategory,
   onTechniqueChange,
   onStart,
   onPause,
@@ -339,101 +343,121 @@ const Timer: React.FC<TimerProps> = ({
         </div>
       </div>
 
-      {/* Control Panel - Compact */}
+      {/* Control Panel - Minimalist Command Center */}
       <div
-        className="w-full max-w-xl animate-fade-in-up"
+        className="w-full max-w-2xl animate-fade-in-up"
         style={{ animationDelay: "0.3s" }}
       >
         <div
-          className="glass-card p-4 space-y-3"
-          style={{ borderRadius: "16px" }}
+          className="relative group"
+          style={{
+            background: "rgba(255, 255, 255, 0.01)",
+            backdropFilter: "blur(24px)",
+            border: "1px solid rgba(255, 255, 255, 0.05)",
+            borderRadius: "24px",
+            boxShadow: "0 20px 50px rgba(0, 0, 0, 0.2)",
+          }}
         >
-          {/* Category and Technique Row */}
-          <div className="flex flex-col sm:flex-row gap-3">
-            {/* Category Input */}
-            <div className="flex-1 flex gap-2">
-              <input
-                type="text"
-                value={subject}
-                onChange={(e) => onSubjectChange(e.target.value)}
-                disabled={isRunning || elapsedSeconds > 0}
-                className="flex-1 px-3 py-2 rounded-lg text-sm transition-all duration-200 outline-none"
-                style={{
-                  background: "var(--bg-elevated)",
-                  border: "1px solid var(--glass-border)",
-                  color: "var(--text-primary)",
-                }}
-                placeholder="Categoría..."
-              />
-              <button
-                type="button"
-                aria-label="Guardar categoría"
-                disabled={
-                  isRunning ||
-                  elapsedSeconds > 0 ||
-                  subject.trim().length === 0 ||
-                  savedCategories.some(
-                    (category) =>
-                      category.toLowerCase() === subject.trim().toLowerCase()
-                  )
-                }
-                onClick={() => onAddCategory(subject)}
-                className="w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-200 disabled:opacity-30"
-                style={{
-                  background: "var(--bg-elevated)",
-                  border: "1px solid var(--glass-border)",
-                  color: "var(--accent-current)",
-                }}
-              >
-                <Plus className="w-4 h-4" />
-              </button>
-            </div>
+          {/* Subtle glow effect on hover */}
+          <div className="absolute -inset-[1px] bg-gradient-to-r from-transparent via-white/5 to-transparent rounded-[24px] opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
 
-            {/* Technique Selector */}
-            <div className="sm:w-48">
-              <TechniqueSelector
-                currentTechnique={technique.type}
-                onSelectTechnique={onTechniqueChange}
-                disabled={isRunning || elapsedSeconds > 0}
-              />
-            </div>
-          </div>
+          <div className="p-8 space-y-8">
+            {/* Top Section: Integrated Input and Technique */}
+            <div className="flex flex-col md:flex-row items-end gap-8">
+              {/* Category Input: The focus point */}
+              <div className="flex-1 w-full space-y-4">
+                <div className="flex items-center gap-3 text-[10px] uppercase tracking-[0.3em] font-bold text-white/30 px-1">
+                  <Tag className="w-3 h-3" />
+                  <span>Enfoque actual</span>
+                </div>
+                <div className="relative group/input">
+                  <input
+                    type="text"
+                    value={subject}
+                    onChange={(e) => onSubjectChange(e.target.value)}
+                    disabled={isRunning || elapsedSeconds > 0}
+                    className="w-full bg-transparent text-xl md:text-2xl font-display tracking-tight text-white transition-all duration-300 outline-none placeholder:text-white/10"
+                    placeholder="¿En qué vas a trabajar?"
+                  />
+                  {/* Minimalistic focus line */}
+                  <div className="absolute -bottom-2 left-0 right-0 h-[1px] bg-white/5 transition-all duration-500 group-focus-within/input:bg-gradient-to-r group-focus-within/input:from-transparent group-focus-within/input:via-cyan-400/50 group-focus-within/input:to-transparent" />
+                </div>
+              </div>
 
-          {/* Category Pills - Compact */}
-          {savedCategories.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {savedCategories.slice(0, 6).map((category) => (
-                <button
-                  key={category}
-                  type="button"
-                  onClick={() => onSubjectChange(category)}
+              {/* Technique Selection: Secondary focus */}
+              <div className="w-full md:w-auto space-y-4 min-w-[180px]">
+                <div className="flex items-center gap-3 text-[10px] uppercase tracking-[0.3em] font-bold text-white/30 px-1">
+                  <Zap className="w-3 h-3" />
+                  <span>Modo</span>
+                </div>
+                <TechniqueSelector
+                  currentTechnique={technique.type}
+                  onSelectTechnique={onTechniqueChange}
                   disabled={isRunning || elapsedSeconds > 0}
-                  className="px-2.5 py-1 rounded-full text-xs font-medium transition-all duration-200"
-                  style={{
-                    background: subject === category
-                      ? "var(--accent-current)"
-                      : "var(--bg-elevated)",
-                    color: subject === category
-                      ? "var(--bg-base)"
-                      : "var(--text-secondary)",
-                    border: `1px solid ${subject === category ? "var(--accent-current)" : "var(--glass-border)"}`,
-                    opacity: isRunning || elapsedSeconds > 0 ? 0.5 : 1,
-                    cursor: isRunning || elapsedSeconds > 0 ? "not-allowed" : "pointer",
-                  }}
-                >
-                  {category}
-                </button>
-              ))}
-              {savedCategories.length > 6 && (
-                <span
-                  className="px-2.5 py-1 text-xs"
-                  style={{ color: "var(--text-muted)" }}
-                >
-                  +{savedCategories.length - 6}
-                </span>
-              )}
+                />
+              </div>
             </div>
-          )}
+
+            {/* Bottom Section: Recent History as subtle chips */}
+            {savedCategories.length > 0 && (
+              <div className="space-y-4 pt-4 border-t border-white/[0.03]">
+                <div className="flex items-center justify-center">
+                  <div className="flex items-center gap-2 text-[9px] uppercase tracking-[0.2em] font-bold text-white/20">
+                    <History className="w-3 h-3" />
+                    <span>Sugerencias recientes</span>
+                    <span className="text-white/10">({savedCategories.length})</span>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap justify-center gap-2">
+                  {savedCategories.map((category) => {
+                    const isSelected = subject === category;
+                    return (
+                      <div key={category} className="relative inline-block group/chip-container">
+                        <button
+                          type="button"
+                          onClick={() => onSubjectChange(category)}
+                          disabled={isRunning || elapsedSeconds > 0}
+                          className="group/chip relative px-4 py-2 rounded-full transition-all duration-300"
+                          style={{
+                            background: isSelected ? "rgba(0, 245, 255, 0.1)" : "transparent",
+                            opacity: isRunning || elapsedSeconds > 0 ? 0.4 : 1,
+                            cursor: isRunning || elapsedSeconds > 0 ? "not-allowed" : "pointer",
+                          }}
+                        >
+                          <span className={`text-xs font-medium transition-colors duration-300 ${isSelected ? "text-cyan-400" : "text-white/40 group-hover/chip:text-white/70"}`}>
+                            {category}
+                          </span>
+                          {!isSelected && (
+                            <div className="absolute inset-0 border border-white/5 rounded-full group-hover/chip:border-white/10 transition-colors" />
+                          )}
+                        </button>
+
+                        {/* Delete button */}
+                        {!isRunning && elapsedSeconds === 0 && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDeleteCategory(category);
+                            }}
+                            className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center opacity-0 group-hover/chip-container:opacity-100 transition-all hover:scale-110"
+                            style={{
+                              background: "var(--status-error)",
+                              color: "var(--bg-base)",
+                              boxShadow: "0 2px 8px rgba(239, 68, 68, 0.4)",
+                            }}
+                            title={`Eliminar ${category}`}
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

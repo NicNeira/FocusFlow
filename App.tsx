@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   LayoutDashboard,
   Timer as TimerIcon,
@@ -75,6 +75,7 @@ function AppContent() {
 
   const [notificationSettings, setNotificationSettings] =
     useState<NotificationSettingsType>(getDefaultNotificationSettings());
+  const [notificationSettingsLoaded, setNotificationSettingsLoaded] = useState(false);
 
   const [timerState, setTimerState] =
     useState<TimerState>(getDefaultTimerState);
@@ -135,6 +136,7 @@ function AppContent() {
         if (loadedNotificationSettings) {
           setNotificationSettings(loadedNotificationSettings);
         }
+        setNotificationSettingsLoaded(true);
 
         setDataLoadedForUser(user.id);
       } catch (error) {
@@ -162,14 +164,14 @@ function AppContent() {
   }, [notificationSettings]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !notificationSettingsLoaded) return;
 
     const saveSettings = async () => {
       await saveNotificationSettings(user.id, notificationSettings);
     };
 
     saveSettings();
-  }, [user, notificationSettings]);
+  }, [user, notificationSettings, notificationSettingsLoaded]);
 
   useEffect(() => {
     let interval: number;
@@ -201,6 +203,12 @@ function AppContent() {
     }
     return timerState.accumulatedTime;
   }, [timerState, now]);
+
+  // Use ref to always have the latest elapsedSeconds value for callbacks
+  const elapsedSecondsRef = useRef(elapsedSeconds);
+  useEffect(() => {
+    elapsedSecondsRef.current = elapsedSeconds;
+  }, [elapsedSeconds]);
 
   useEffect(() => {
     if (!timerState.isRunning || timerState.technique.type === "libre") return;
@@ -419,6 +427,26 @@ function AppContent() {
     });
   };
 
+  const handleDeleteCategory = useCallback((category: string) => {
+    const hasGoal = categoryGoals[category] && categoryGoals[category] > 0;
+
+    const confirmMessage = hasGoal
+      ? `¿Eliminar "${category}"?\n\nEsta categoría tiene una meta semanal de ${categoryGoals[category]}h configurada. La meta también será eliminada.`
+      : `¿Eliminar "${category}" de las sugerencias?`;
+
+    if (!confirm(confirmMessage)) return;
+
+    // Eliminar de categorías
+    setCategories((prev) => prev.filter((c) => c !== category));
+
+    // Eliminar meta si existe
+    if (hasGoal) {
+      const newGoals = { ...categoryGoals };
+      delete newGoals[category];
+      setCategoryGoals(newGoals);
+    }
+  }, [categoryGoals]);
+
   const handleTechniqueChange = (technique: StudyTechnique) => {
     setTimerState((prev) => ({
       ...prev,
@@ -432,7 +460,7 @@ function AppContent() {
     setNotificationSettings(settings);
   };
 
-  const handleStartTimer = () => {
+  const handleStartTimer = useCallback(() => {
     setTimerState((prev) => ({
       ...prev,
       isRunning: true,
@@ -446,9 +474,9 @@ function AppContent() {
     if (notificationSettings.vibrationEnabled) {
       audioService.vibrate([100, 50, 100]);
     }
-  };
+  }, [notificationSettings.soundEnabled, notificationSettings.vibrationEnabled]);
 
-  const handlePauseTimer = () => {
+  const handlePauseTimer = useCallback(() => {
     setTimerState((prev) => {
       if (!prev.startTime) return prev;
       const currentSegment = Math.floor((Date.now() - prev.startTime) / 1000);
@@ -459,11 +487,12 @@ function AppContent() {
         accumulatedTime: prev.accumulatedTime + currentSegment,
       };
     });
-  };
+  }, []);
 
-  const handleResetTimer = () => {
+  const handleResetTimer = useCallback(() => {
+    const currentElapsed = elapsedSecondsRef.current;
     if (
-      elapsedSeconds > 10 &&
+      currentElapsed > 10 &&
       !confirm(
         "¿Estás seguro de reiniciar el contador? Se perderá el progreso actual."
       )
@@ -479,21 +508,45 @@ function AppContent() {
       technique: resetCycles(getTechniqueConfig(prev.technique.type)),
       pomodoroStats: prev.pomodoroStats,
     }));
-  };
+  }, []);
 
-  const handleSaveSession = async () => {
+  const handleSaveSession = useCallback(async () => {
     if (!user) return;
 
-    if (elapsedSeconds < 10) {
+    const currentElapsed = elapsedSecondsRef.current;
+    if (currentElapsed < 10) {
       alert("La sesión es muy corta para guardarse (< 10 segundos).");
       return;
     }
 
+    // Calcular el tiempo de trabajo efectivo basándose en la técnica
+    let workDurationSeconds = currentElapsed;
+    const technique = timerState.technique;
+
+    if (technique.type !== "libre") {
+      // Para Pomodoro y 52-17, calcular solo el tiempo de trabajo
+      const cycleDuration = technique.workDuration + technique.breakDuration;
+      const completeCycles = Math.floor(currentElapsed / cycleDuration);
+      const remainingTime = currentElapsed % cycleDuration;
+
+      // Tiempo de trabajo de ciclos completos
+      workDurationSeconds = completeCycles * technique.workDuration;
+
+      // Agregar tiempo de trabajo del ciclo incompleto
+      if (remainingTime > 0) {
+        // Si el tiempo restante es menor o igual al workDuration, es todo trabajo
+        // Si es mayor, solo contar el workDuration
+        workDurationSeconds += Math.min(remainingTime, technique.workDuration);
+      }
+    }
+
     const newSession = {
       subject: timerState.subject || "General",
-      startTime: Date.now() - elapsedSeconds * 1000,
+      startTime: Date.now() - currentElapsed * 1000,
       endTime: Date.now(),
-      durationSeconds: elapsedSeconds,
+      durationSeconds: currentElapsed,
+      workDurationSeconds: workDurationSeconds,
+      technique: technique.type,
       notes: timerState.notes,
     };
 
@@ -513,7 +566,7 @@ function AppContent() {
     if (newSession.subject && !categories.includes(newSession.subject)) {
       setCategories((prev) => [newSession.subject, ...prev].slice(0, 20));
     }
-  };
+  }, [user, timerState.subject, timerState.notes, timerState.technique, addSession, categories]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -522,6 +575,37 @@ function AppContent() {
     setCategories([]);
     setTimerState(getDefaultTimerState());
   };
+
+  const handleClearAllData = useCallback(async () => {
+    if (!user) return false;
+
+    try {
+      // Eliminar todas las sesiones
+      await Promise.all(sessions.map((s) => deleteSessionFromDB(s.id)));
+
+      // Eliminar todos los objetivos
+      await Promise.all(objectives.map((o) => deleteObjectiveFromDB(o.id)));
+
+      // Resetear notificaciones
+      await saveNotificationSettings(user.id, getDefaultNotificationSettings());
+
+      // Limpiar timer
+      await clearTimerState(user.id);
+
+      // Actualizar estado local
+      setSessions([]);
+      setObjectives([]);
+      setCategories([]);
+      setCategoryGoals({});
+      setTimerState(getDefaultTimerState());
+      setNotificationSettings(getDefaultNotificationSettings());
+
+      return true;
+    } catch (error) {
+      console.error('Error clearing data:', error);
+      return false;
+    }
+  }, [user, sessions, objectives]);
 
   // Helper functions for PiP
   const formatTime = useCallback((totalSeconds: number) => {
@@ -771,6 +855,7 @@ function AppContent() {
                 setTimerState((prev) => ({ ...prev, subject: val }))
               }
               onAddCategory={handleAddCategory}
+              onDeleteCategory={handleDeleteCategory}
               onTechniqueChange={handleTechniqueChange}
               onStart={handleStartTimer}
               onPause={handlePauseTimer}
@@ -794,6 +879,7 @@ function AppContent() {
               onAddObjective={handleAddObjective}
               onToggleObjective={handleToggleObjective}
               onDeleteObjective={handleDeleteObjective}
+              onDeleteCategory={handleDeleteCategory}
               onUpdateWeeklyTarget={handleUpdateWeeklyTarget}
               onUpdateCategoryGoals={handleUpdateCategoryGoals}
             />
@@ -825,6 +911,7 @@ function AppContent() {
             <SettingsComponent
               settings={notificationSettings}
               onSettingsChange={handleNotificationSettingsChange}
+              onClearAllData={handleClearAllData}
             />
           </div>
         )}

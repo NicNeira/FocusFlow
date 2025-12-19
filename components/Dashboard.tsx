@@ -37,6 +37,7 @@ interface DashboardProps {
   onAddObjective: (text: string) => void;
   onToggleObjective: (id: string) => void;
   onDeleteObjective: (id: string) => void;
+  onDeleteCategory: (category: string) => void;
   onUpdateWeeklyTarget: (hours: number) => void;
   onUpdateCategoryGoals: (goals: WeeklyGoalsByCategory) => void;
 }
@@ -59,6 +60,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   onAddObjective,
   onToggleObjective,
   onDeleteObjective,
+  onDeleteCategory,
   onUpdateWeeklyTarget,
   onUpdateCategoryGoals,
 }) => {
@@ -69,6 +71,11 @@ const Dashboard: React.FC<DashboardProps> = ({
     null
   );
   const [tempCategoryGoal, setTempCategoryGoal] = useState("");
+
+  // Helper function: obtiene el tiempo de trabajo efectivo (para retrocompatibilidad)
+  const getWorkDuration = (session: StudySession): number => {
+    return session.workDurationSeconds ?? session.durationSeconds;
+  };
 
   const totalSeconds = sessions.reduce((acc, s) => acc + s.durationSeconds, 0);
   const totalHours = (totalSeconds / 3600).toFixed(1);
@@ -82,9 +89,10 @@ const Dashboard: React.FC<DashboardProps> = ({
     const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1);
     startOfWeek.setDate(diff);
 
+    // Usar workDurationSeconds para las metas (solo tiempo de trabajo efectivo)
     const weeklySeconds = sessions
       .filter((s) => s.endTime >= startOfWeek.getTime())
-      .reduce((acc, s) => acc + s.durationSeconds, 0);
+      .reduce((acc, s) => acc + getWorkDuration(s), 0);
 
     return {
       seconds: weeklySeconds,
@@ -111,7 +119,8 @@ const Dashboard: React.FC<DashboardProps> = ({
   const subjectData = useMemo(() => {
     const map: Record<string, number> = {};
     sessions.forEach((s) => {
-      map[s.subject] = (map[s.subject] || 0) + s.durationSeconds;
+      // Usar tiempo de trabajo efectivo para las estadísticas
+      map[s.subject] = (map[s.subject] || 0) + getWorkDuration(s);
     });
     return Object.keys(map)
       .map((key) => ({
@@ -131,9 +140,10 @@ const Dashboard: React.FC<DashboardProps> = ({
 
     return last7Days.map((date) => {
       const dateStr = date.toLocaleDateString();
+      // Usar tiempo de trabajo efectivo para los gráficos
       const dayTotal = sessions
         .filter((s) => new Date(s.endTime).toLocaleDateString() === dateStr)
-        .reduce((acc, s) => acc + s.durationSeconds, 0);
+        .reduce((acc, s) => acc + getWorkDuration(s), 0);
       return {
         day: days[date.getDay()],
         hours: parseFloat((dayTotal / 3600).toFixed(2)),
@@ -156,9 +166,10 @@ const Dashboard: React.FC<DashboardProps> = ({
     const progress: Record<string, { current: number; target: number }> = {};
 
     categories.forEach((cat) => {
+      // Usar tiempo de trabajo efectivo para las metas por categoría
       const catSeconds = weekSessions
         .filter((s) => s.subject === cat)
-        .reduce((acc, s) => acc + s.durationSeconds, 0);
+        .reduce((acc, s) => acc + getWorkDuration(s), 0);
       progress[cat] = {
         current: parseFloat((catSeconds / 3600).toFixed(2)),
         target: categoryGoals[cat] || 0,
@@ -411,14 +422,27 @@ const Dashboard: React.FC<DashboardProps> = ({
                       : 0;
 
                   return (
-                    <div key={category} className="space-y-1.5">
+                    <div key={category} className="space-y-1.5 group/category-item">
                       <div className="flex items-center justify-between">
-                        <span
-                          className="text-sm font-medium truncate max-w-[120px]"
-                          style={{ color: "var(--text-secondary)" }}
-                        >
-                          {category}
-                        </span>
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <span
+                            className="text-sm font-medium truncate max-w-[120px]"
+                            style={{ color: "var(--text-secondary)" }}
+                          >
+                            {category}
+                          </span>
+
+                          {/* Delete button */}
+                          <button
+                            onClick={() => onDeleteCategory(category)}
+                            className="opacity-0 group-hover/category-item:opacity-100 p-1 rounded transition-all hover:scale-110"
+                            style={{ color: "var(--status-error)" }}
+                            title={`Eliminar ${category}`}
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+
                         <div className="flex items-center gap-2">
                           {editingCategoryGoal === category ? (
                             <>
@@ -670,8 +694,15 @@ const Dashboard: React.FC<DashboardProps> = ({
                     background: "var(--bg-surface)",
                     boxShadow: "0 10px 40px rgba(0, 0, 0, 0.4)",
                   }}
-                  labelStyle={{ color: "var(--text-primary)" }}
-                  itemStyle={{ color: "var(--accent-cyan)" }}
+                  labelStyle={{
+                    color: "var(--text-primary)",
+                    fontWeight: 600,
+                    marginBottom: "4px"
+                  }}
+                  itemStyle={{
+                    color: "var(--accent-cyan)",
+                    fontSize: "14px"
+                  }}
                   cursor={{ fill: "rgba(0, 245, 255, 0.1)" }}
                   formatter={(value: number) => [formatHoursLong(value), "Tiempo"]}
                 />
@@ -732,7 +763,15 @@ const Dashboard: React.FC<DashboardProps> = ({
                       background: "var(--bg-surface)",
                       boxShadow: "0 10px 40px rgba(0, 0, 0, 0.4)",
                     }}
-                    labelStyle={{ color: "var(--text-primary)" }}
+                    labelStyle={{
+                      color: "var(--text-primary)",
+                      fontWeight: 600,
+                      marginBottom: "4px"
+                    }}
+                    itemStyle={{
+                      color: "var(--text-secondary)",
+                      fontSize: "14px"
+                    }}
                     formatter={(value: number) => [formatHoursLong(value), "Tiempo"]}
                   />
                   <Legend

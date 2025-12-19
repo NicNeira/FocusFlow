@@ -3,7 +3,9 @@ export interface StudySession {
   subject: string;
   startTime: number;
   endTime: number;
-  durationSeconds: number;
+  durationSeconds: number; // Tiempo total (incluyendo descansos)
+  workDurationSeconds?: number; // Tiempo de trabajo efectivo (sin descansos) - opcional para retrocompatibilidad
+  technique?: StudyTechnique; // Técnica usada - opcional para retrocompatibilidad
   notes?: string;
 }
 

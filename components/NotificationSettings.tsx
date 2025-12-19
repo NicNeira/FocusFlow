@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   Bell,
   BellOff,
@@ -11,6 +12,8 @@ import {
   Loader2,
   Settings,
   Zap,
+  AlertTriangle,
+  Trash2,
 } from "lucide-react";
 import {
   NotificationSettings as NotificationSettingsType,
@@ -21,11 +24,247 @@ import { audioService } from "../services/audioService";
 interface SettingsProps {
   settings: NotificationSettingsType;
   onSettingsChange: (settings: NotificationSettingsType) => void;
+  onClearAllData: () => Promise<boolean>;
 }
+
+// Modal component for clearing all data
+const ClearAllDataModal: React.FC<{
+  onClearAllData: () => Promise<boolean>;
+}> = ({ onClearAllData }) => {
+  const [showModal, setShowModal] = useState(false);
+  const [confirmed, setConfirmed] = useState(false);
+  const [clearing, setClearing] = useState(false);
+
+  const handleClearData = async () => {
+    if (!confirmed) return;
+
+    setClearing(true);
+    const success = await onClearAllData();
+    setClearing(false);
+
+    if (success) {
+      setShowModal(false);
+      setConfirmed(false);
+    } else {
+      alert("Error al borrar los datos. Por favor, intenta nuevamente.");
+    }
+  };
+
+  return (
+    <>
+      <button
+        onClick={() => setShowModal(true)}
+        className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-sm font-semibold transition-all hover:scale-[1.02]"
+        style={{
+          background: "rgba(239, 68, 68, 0.1)",
+          color: "var(--status-error)",
+          border: "1px solid rgba(239, 68, 68, 0.3)",
+        }}
+      >
+        <Trash2 className="w-4 h-4" />
+        <span>Borrar Todos los Datos</span>
+      </button>
+
+      {/* Modal */}
+      {showModal && createPortal(
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 99999,
+            background: "rgba(0, 0, 0, 0.85)",
+            backdropFilter: "blur(12px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "1rem",
+          }}
+          onClick={() => !clearing && setShowModal(false)}
+        >
+          <div
+            className="glass-card"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "var(--bg-surface)",
+              border: "1px solid rgba(239, 68, 68, 0.4)",
+              position: "relative",
+              padding: "2rem",
+              maxWidth: "28rem",
+              width: "100%",
+              maxHeight: "90vh",
+              overflowY: "auto",
+              display: "flex",
+              flexDirection: "column",
+              gap: "1.5rem",
+              borderRadius: "1.5rem",
+              boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
+            }}
+          >
+            {/* Header */}
+            <div className="flex items-start gap-4">
+              <div
+                className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0"
+                style={{ background: "rgba(239, 68, 68, 0.15)" }}
+              >
+                <AlertTriangle
+                  className="w-6 h-6"
+                  style={{ color: "var(--status-error)" }}
+                />
+              </div>
+              <div className="flex-1">
+                <h3
+                  className="text-xl font-bold mb-2"
+                  style={{ color: "var(--text-primary)" }}
+                >
+                  ¿Borrar todos los datos?
+                </h3>
+                <p
+                  className="text-sm mb-4"
+                  style={{ color: "var(--text-secondary)" }}
+                >
+                  Esta acción eliminará permanentemente:
+                </p>
+                <ul
+                  className="text-sm space-y-3 mb-4"
+                  style={{ color: "var(--text-secondary)" }}
+                >
+                  <li className="flex items-center gap-3">
+                    <div
+                      className="w-1.5 h-1.5 rounded-full"
+                      style={{ background: "var(--status-error)" }}
+                    />
+                    Todas las sesiones de estudio
+                  </li>
+                  <li className="flex items-center gap-3">
+                    <div
+                      className="w-1.5 h-1.5 rounded-full"
+                      style={{ background: "var(--status-error)" }}
+                    />
+                    Todos los objetivos y tareas
+                  </li>
+                  <li className="flex items-center gap-3">
+                    <div
+                      className="w-1.5 h-1.5 rounded-full"
+                      style={{ background: "var(--status-error)" }}
+                    />
+                    Configuración de notificaciones
+                  </li>
+                  <li className="flex items-center gap-3">
+                    <div
+                      className="w-1.5 h-1.5 rounded-full"
+                      style={{ background: "var(--status-error)" }}
+                    />
+                    Estado del timer actual
+                  </li>
+                </ul>
+                <div 
+                  className="p-3 rounded-xl flex items-center gap-3"
+                  style={{ background: "rgba(239, 68, 68, 0.1)" }}
+                >
+                  <span
+                    className="text-sm font-semibold"
+                    style={{ color: "var(--status-error)" }}
+                  >
+                    ⚠️ Esta acción no se puede deshacer
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Confirmation Checkbox */}
+            <label 
+              className="flex items-center gap-3 cursor-pointer group p-4 rounded-xl transition-all"
+              style={{ background: confirmed ? "rgba(239, 68, 68, 0.05)" : "rgba(255, 255, 255, 0.02)" }}
+            >
+              <div
+                className="relative w-6 h-6 rounded-lg transition-all duration-200 flex-shrink-0"
+                style={{
+                  background: confirmed
+                    ? "var(--status-error)"
+                    : "var(--bg-elevated)",
+                  border: confirmed ? "none" : "2px solid var(--glass-border)",
+                  boxShadow: confirmed
+                    ? "0 0 20px rgba(239, 68, 68, 0.4)"
+                    : "none",
+                }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  setConfirmed(!confirmed);
+                }}
+              >
+                {confirmed && (
+                  <Check
+                    className="w-4 h-4 absolute top-1 left-1"
+                    style={{ color: "var(--bg-base)" }}
+                  />
+                )}
+              </div>
+              <span
+                className="text-sm font-medium"
+                style={{ color: "var(--text-primary)" }}
+              >
+                Confirmo que quiero borrar todos mis datos
+              </span>
+            </label>
+
+            {/* Actions */}
+            <div className="flex gap-4">
+              <button
+                onClick={() => setShowModal(false)}
+                disabled={clearing}
+                className="flex-1 py-3.5 rounded-xl text-sm font-semibold transition-all hover:bg-white/5 disabled:opacity-50"
+                style={{
+                  background: "var(--bg-elevated)",
+                  color: "var(--text-secondary)",
+                  border: "1px solid var(--glass-border)",
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleClearData}
+                disabled={!confirmed || clearing}
+                className="flex-1 py-3.5 rounded-xl text-sm font-semibold transition-all hover:scale-[1.02] disabled:opacity-50 flex items-center justify-center gap-2"
+                style={{
+                  background: confirmed && !clearing
+                    ? "var(--status-error)"
+                    : "rgba(239, 68, 68, 0.1)",
+                  color: confirmed && !clearing
+                    ? "var(--bg-base)"
+                    : "var(--status-error)",
+                  boxShadow: confirmed && !clearing
+                    ? "0 10px 25px -5px rgba(239, 68, 68, 0.5)"
+                    : "none",
+                }}
+              >
+                {clearing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Borrando...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    <span>Borrar Todo</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+    </>
+  );
+};
 
 const SettingsComponent: React.FC<SettingsProps> = ({
   settings,
   onSettingsChange,
+  onClearAllData,
 }) => {
   const [permissionStatus, setPermissionStatus] = useState<string>("default");
   const [showPermissionBanner, setShowPermissionBanner] = useState(false);
@@ -844,6 +1083,38 @@ const SettingsComponent: React.FC<SettingsProps> = ({
             </span>
           </div>
         </div>
+      </div>
+
+      {/* Danger Zone Section */}
+      <div
+        className="glass-card p-6 animate-fade-in-up"
+        style={{
+          animationDelay: "0.4s",
+          background: "rgba(239, 68, 68, 0.05)",
+          border: "1px solid rgba(239, 68, 68, 0.2)",
+        }}
+      >
+        <div className="flex items-center gap-4 mb-5">
+          <div
+            className="w-10 h-10 rounded-xl flex items-center justify-center"
+            style={{ background: "rgba(239, 68, 68, 0.1)" }}
+          >
+            <AlertTriangle className="w-5 h-5" style={{ color: "var(--status-error)" }} />
+          </div>
+          <div>
+            <h3
+              className="font-semibold text-base"
+              style={{ color: "var(--status-error)" }}
+            >
+              Zona de Peligro
+            </h3>
+            <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+              Acciones irreversibles
+            </p>
+          </div>
+        </div>
+
+        <ClearAllDataModal onClearAllData={onClearAllData} />
       </div>
     </div>
   );

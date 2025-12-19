@@ -76,21 +76,21 @@ const TechniqueSelector: React.FC<TechniqueSelectorProps> = ({
         type="button"
         onClick={() => !disabled && setIsOpen(!isOpen)}
         disabled={disabled}
-        className="w-full px-4 py-3 rounded-xl flex items-center justify-between gap-3 transition-all duration-200"
+        className="w-full group/btn px-0 py-1 flex items-center justify-between gap-4 transition-all duration-300 outline-none"
         style={{
-          background: "var(--bg-elevated)",
-          border: `1px solid ${isOpen ? "var(--glass-border-hover)" : "var(--glass-border)"}`,
+          background: "transparent",
           color: "var(--text-primary)",
-          opacity: disabled ? 0.5 : 1,
+          opacity: disabled ? 0.3 : 1,
           cursor: disabled ? "not-allowed" : "pointer",
         }}
       >
         <div className="flex items-center gap-3">
-          {/* Icon with color */}
+          {/* Icon with subtle background */}
           <div
-            className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
+            className="w-10 h-10 rounded-full flex items-center justify-center transition-all duration-500 group-hover/btn:scale-110"
             style={{
-              background: `${selectedTechnique?.color}15`,
+              background: "rgba(255, 255, 255, 0.03)",
+              border: "1px solid rgba(255, 255, 255, 0.05)",
               color: selectedTechnique?.color,
             }}
           >
@@ -99,30 +99,32 @@ const TechniqueSelector: React.FC<TechniqueSelectorProps> = ({
 
           {/* Text content */}
           <div className="flex flex-col items-start">
-            <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+            <span className="text-sm font-bold tracking-tight" style={{ color: "var(--text-primary)" }}>
               {selectedTechnique?.name}
             </span>
-            <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-              {selectedTechnique?.workTime} / {selectedTechnique?.breakTime}
+            <span className="text-[10px] font-medium opacity-40 uppercase tracking-widest">
+              {selectedTechnique?.workTime} focus
             </span>
           </div>
         </div>
 
-        {/* Chevron */}
-        <ChevronDown
-          className={`w-4 h-4 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
-          style={{ color: "var(--text-muted)" }}
-        />
+        {/* Minimalist Chevron */}
+        <div className={`p-1 rounded-full transition-all duration-300 ${isOpen ? "bg-white/10 rotate-180" : "bg-transparent"}`}>
+          <ChevronDown
+            className="w-3.5 h-3.5 opacity-20"
+          />
+        </div>
       </button>
 
-      {/* Dropdown Menu */}
+      {/* Dropdown Menu - Modern & Sharp */}
       {isOpen && !disabled && (
         <div
-          className="absolute z-50 w-full mt-2 py-2 rounded-xl overflow-hidden animate-fade-in"
+          className="absolute z-50 w-full mt-4 py-2 rounded-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300"
           style={{
-            background: "var(--bg-surface)",
-            border: "1px solid var(--glass-border)",
-            boxShadow: "0 10px 40px rgba(0, 0, 0, 0.4)",
+            background: "rgba(10, 10, 10, 0.95)",
+            backdropFilter: "blur(20px)",
+            border: "1px solid rgba(255, 255, 255, 0.08)",
+            boxShadow: "0 20px 40px rgba(0, 0, 0, 0.6)",
           }}
         >
           {techniques.map((technique) => {
@@ -133,13 +135,13 @@ const TechniqueSelector: React.FC<TechniqueSelectorProps> = ({
                 key={technique.type}
                 type="button"
                 onClick={() => handleSelect(technique.type)}
-                className="w-full px-4 py-3 flex items-center gap-3 transition-all duration-150"
+                className="w-full px-4 py-4 flex items-center gap-4 transition-all duration-200"
                 style={{
-                  background: isSelected ? "var(--bg-elevated)" : "transparent",
+                  background: isSelected ? "rgba(255, 255, 255, 0.03)" : "transparent",
                 }}
                 onMouseEnter={(e) => {
                   if (!isSelected) {
-                    e.currentTarget.style.background = "var(--bg-hover)";
+                    e.currentTarget.style.background = "rgba(255, 255, 255, 0.01)";
                   }
                 }}
                 onMouseLeave={(e) => {
@@ -148,12 +150,12 @@ const TechniqueSelector: React.FC<TechniqueSelectorProps> = ({
                   }
                 }}
               >
-                {/* Icon */}
+                {/* Minimal Icon */}
                 <div
-                  className="w-8 h-8 rounded-lg flex items-center justify-center"
+                  className="w-8 h-8 rounded-full flex items-center justify-center transition-colors"
                   style={{
-                    background: `${technique.color}15`,
-                    color: technique.color,
+                    background: isSelected ? `${technique.color}20` : "rgba(255, 255, 255, 0.02)",
+                    color: isSelected ? technique.color : "rgba(255, 255, 255, 0.2)",
                   }}
                 >
                   {technique.icon}
@@ -162,25 +164,25 @@ const TechniqueSelector: React.FC<TechniqueSelectorProps> = ({
                 {/* Text */}
                 <div className="flex flex-col items-start flex-1">
                   <span
-                    className="text-sm font-semibold"
+                    className={`text-sm tracking-tight ${isSelected ? "font-bold" : "font-medium"}`}
                     style={{
-                      color: isSelected ? technique.color : "var(--text-primary)",
+                      color: isSelected ? "white" : "rgba(255, 255, 255, 0.5)",
                     }}
                   >
                     {technique.name}
                   </span>
-                  <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-                    {technique.workTime} trabajo / {technique.breakTime} descanso
+                  <span className="text-[10px] uppercase tracking-widest opacity-30 font-bold">
+                    {technique.workTime} / {technique.breakTime}
                   </span>
                 </div>
 
-                {/* Selected indicator */}
+                {/* Status Dot */}
                 {isSelected && (
                   <div
-                    className="w-2 h-2 rounded-full"
+                    className="w-1.5 h-1.5 rounded-full"
                     style={{
                       background: technique.color,
-                      boxShadow: `0 0 8px ${technique.color}`,
+                      boxShadow: `0 0 10px ${technique.color}`,
                     }}
                   />
                 )}

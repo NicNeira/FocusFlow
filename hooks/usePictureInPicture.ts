@@ -49,9 +49,9 @@ export function usePictureInPicture({
     }
   }, [time, isRunning, isBreakTime, status, hasElapsedTime, isActive]);
 
-  // Setup controls when PiP becomes active
+  // Setup controls when PiP becomes active or when handlers change
   useEffect(() => {
-    if (isActive && pipService.isActive() && !controlsSetup.current) {
+    if (isActive && pipService.isActive()) {
       pipService.setupControls({
         onPlay,
         onPause,
